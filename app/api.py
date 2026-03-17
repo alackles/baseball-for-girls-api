@@ -47,7 +47,7 @@ def league():
     db = get_db(current_app)
     cfg = current_app.config["CONFIG"]
 
-    teams = db.execute("SELECT id, name, owner FROM teams ORDER BY id").fetchall()
+    teams = db.execute("SELECT id, name, owner, color FROM teams ORDER BY id").fetchall()
 
     standings = db.execute(
         """
@@ -68,6 +68,7 @@ def league():
                 "id": t["id"],
                 "name": t["name"],
                 "owner": t["owner"],
+                "color": t["color"],
                 "total_points": standings_map.get(t["id"], 0.0),
             }
         )
@@ -86,9 +87,10 @@ def create_team():
     data = request.get_json(silent=True) or {}
     name = data.get("name", "").strip()
     owner = data.get("owner", "").strip()
+    color = data.get("color", "#e85d26").strip()
     if not name or not owner:
         return _err("Name and owner are required.")
-    cur = db.execute("INSERT INTO teams (name, owner) VALUES (?,?)", (name, owner))
+    cur = db.execute("INSERT INTO teams (name, owner, color) VALUES (?,?,?)", (name, owner, color))
     db.commit()
     return _ok(team_id=cur.lastrowid)
 
@@ -99,9 +101,10 @@ def update_team(team_id: int):
     data = request.get_json(silent=True) or {}
     name = data.get("name", "").strip()
     owner = data.get("owner", "").strip()
+    color = data.get("color", "").strip()
 
-    if not name and not owner:
-        return _err("Provide at least one of: name, owner.")
+    if not name and not owner and not color:
+        return _err("Provide at least one of: name, owner, color.")
 
     updates, params = [], []
     if name:
@@ -110,6 +113,9 @@ def update_team(team_id: int):
     if owner:
         updates.append("owner=?")
         params.append(owner)
+    if color:
+        updates.append("color=?")
+        params.append(color)
     params.append(team_id)
 
     db.execute(f"UPDATE teams SET {', '.join(updates)} WHERE id=?", params)

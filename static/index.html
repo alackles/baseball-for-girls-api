@@ -47,6 +47,71 @@
   }
   header h1 span { color: var(--text); }
 
+  /* ---- Team bar ---- */
+  #teamBar {
+    background: var(--surface);
+    border-bottom: 3px solid var(--my-team-color, var(--border));
+    display: flex;
+    justify-content: center;
+    padding: 0.5rem 1.5rem;
+    transition: border-color 0.3s;
+  }
+  #teamBarBtn {
+    background: none;
+    border: none;
+    color: var(--text);
+    font-family: var(--font);
+    font-size: 1.25rem;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.25rem 0.75rem;
+    border-radius: var(--radius);
+    transition: background 0.15s;
+  }
+  #teamBarBtn:hover { background: var(--surface2); }
+  .team-dot {
+    width: 12px;
+    height: 12px;
+    border-radius: 50%;
+    background: var(--my-team-color, var(--muted));
+    display: inline-block;
+    flex-shrink: 0;
+    transition: background 0.3s;
+  }
+  #teamPicker {
+    position: absolute;
+    top: auto;
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 0.75rem;
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+    gap: 0.5rem;
+    min-width: 320px;
+    max-width: 600px;
+    z-index: 100;
+    box-shadow: 0 8px 24px rgba(0,0,0,0.5);
+  }
+  #teamPicker.hidden { display: none; }
+  .team-pick-card {
+    background: var(--surface);
+    border: 2px solid var(--border);
+    border-radius: var(--radius);
+    padding: 0.75rem;
+    cursor: pointer;
+    text-align: left;
+    font-family: var(--font);
+    color: var(--text);
+    transition: border-color 0.15s, background 0.15s;
+  }
+  .team-pick-card:hover { background: var(--surface2); }
+  .team-pick-card.selected { border-color: var(--my-team-color, var(--accent)); }
+  .team-pick-name { font-size: 1rem; font-weight: bold; }
+  .team-pick-owner { font-size: 0.78rem; color: var(--muted); margin-top: 0.2rem; }
+
   /* ---- Nav ---- */
   nav {
     display: flex;
@@ -327,13 +392,15 @@
 
 <header>
   <h1 id="leagueTitle">⚾ <span>Baseball for Girls</span></h1>
-  <div class="flex">
-    <label for="teamSelect" style="white-space:nowrap">My Team:</label>
-    <select id="teamSelect" style="width:180px;" onchange="onTeamChange()">
-      <option value="">— select —</option>
-    </select>
-  </div>
 </header>
+
+<div id="teamBar">
+  <button id="teamBarBtn" onclick="toggleTeamPicker()">
+    <span class="team-dot" id="teamBarDot"></span>
+    <span id="teamBarName">Select your team ▾</span>
+  </button>
+  <div id="teamPicker" class="hidden"></div>
+</div>
 
 <nav>
   <button class="active" onclick="showView('draft')">Draft Board</button>
@@ -481,6 +548,10 @@
       <label>Owner Name</label>
       <input type="text" id="newTeamOwner" placeholder="e.g. Alex" />
     </div>
+    <div class="field">
+      <label>Team Color</label>
+      <input type="color" id="newTeamColor" value="#e85d26" style="width:3rem;height:2rem;padding:0.1rem;cursor:pointer" />
+    </div>
     <button class="btn btn-primary btn-sm" onclick="createTeam()">Add Team</button>
     <span id="newTeamMsg" style="margin-left:0.5rem;font-size:0.82rem;"></span>
   </div>
@@ -534,10 +605,7 @@ async function init() {
   state.teams = data.teams;
   document.getElementById('leagueTitle').innerHTML =
     `⚾ <span>${data.league_name}</span>`;
-  populateTeamSelect();
-  if (state.myTeamId) {
-    document.getElementById('teamSelect').value = state.myTeamId;
-  }
+  renderTeamBar();
   updateTradeWindowBanner(data.trade_window);
   state.tradeWindowOpen = data.trade_window.open;
 
@@ -549,21 +617,50 @@ async function init() {
   loadSettings();
 }
 
-function populateTeamSelect() {
-  const sel = document.getElementById('teamSelect');
-  sel.innerHTML = '<option value="">— select —</option>';
-  state.teams.forEach(t => {
-    const opt = document.createElement('option');
-    opt.value = t.id;
-    opt.textContent = t.name;
-    sel.appendChild(opt);
-  });
+function renderTeamBar() {
+  const picker = document.getElementById('teamPicker');
+  picker.innerHTML = state.teams.map(t => `
+    <button class="team-pick-card ${t.id === state.myTeamId ? 'selected' : ''}"
+            style="border-color:${t.id === state.myTeamId ? t.color : ''}"
+            onclick="onTeamChange(${t.id})">
+      <div style="display:flex;align-items:center;gap:0.4rem;margin-bottom:0.2rem">
+        <span style="width:10px;height:10px;border-radius:50%;background:${t.color};display:inline-block;flex-shrink:0"></span>
+        <span class="team-pick-name">${esc(t.name)}</span>
+      </div>
+      <div class="team-pick-owner">${esc(t.owner)}</div>
+    </button>
+  `).join('');
+
+  const team = state.teams.find(t => t.id === state.myTeamId);
+  if (team) {
+    document.getElementById('teamBarName').textContent = team.name + ' ▾';
+    applyTeamColor(team.color);
+  } else {
+    document.getElementById('teamBarName').textContent = 'Select your team ▾';
+    applyTeamColor(null);
+  }
 }
 
-function onTeamChange() {
-  const sel = document.getElementById('teamSelect');
-  state.myTeamId = parseInt(sel.value) || null;
+function applyTeamColor(color) {
+  const root = document.documentElement;
+  if (color) {
+    root.style.setProperty('--my-team-color', color);
+  } else {
+    root.style.removeProperty('--my-team-color');
+  }
+  const dot = document.getElementById('teamBarDot');
+  if (dot) dot.style.background = color || 'var(--muted)';
+}
+
+function toggleTeamPicker() {
+  document.getElementById('teamPicker').classList.toggle('hidden');
+}
+
+function onTeamChange(teamId) {
+  state.myTeamId = teamId || null;
   localStorage.setItem('myTeamId', state.myTeamId || '');
+  document.getElementById('teamPicker').classList.add('hidden');
+  renderTeamBar();
   loadQueueForMyTeam();
   refreshDraftUI();
 }
@@ -1138,6 +1235,10 @@ async function loadSettings() {
         <label>Owner Name</label>
         <input type="text" id="sOwner-${t.id}" value="${esc(t.owner)}" />
       </div>
+      <div class="field">
+        <label>Team Color</label>
+        <input type="color" id="sColor-${t.id}" value="${t.color || '#e85d26'}" style="width:3rem;height:2rem;padding:0.1rem;cursor:pointer" />
+      </div>
       <button class="btn btn-primary btn-sm" onclick="saveTeam(${t.id})">Save</button>
       <span id="sMsg-${t.id}" style="margin-left:0.5rem;font-size:0.82rem;"></span>
     </div>
@@ -1148,15 +1249,17 @@ async function createTeam() {
   const name = document.getElementById('newTeamName').value.trim();
   const owner = document.getElementById('newTeamOwner').value.trim();
   const msg = document.getElementById('newTeamMsg');
-  const res = await api('/teams', { method: 'POST', body: JSON.stringify({ name, owner }) });
+  const color = document.getElementById('newTeamColor').value;
+  const res = await api('/teams', { method: 'POST', body: JSON.stringify({ name, owner, color }) });
   msg.style.color = res.ok ? 'var(--green)' : 'var(--red)';
   msg.textContent = res.ok ? '✓ Team added' : '✗ ' + res.error;
   if (res.ok) {
     document.getElementById('newTeamName').value = '';
     document.getElementById('newTeamOwner').value = '';
+    document.getElementById('newTeamColor').value = '#e85d26';
     await loadSettings();
     const data = await api('/league');
-    if (data.ok) { state.teams = data.teams; populateTeamSelect(); loadRosterSelector(); }
+    if (data.ok) { state.teams = data.teams; renderTeamBar(); loadRosterSelector(); }
   }
   setTimeout(() => { msg.textContent = ''; }, 3000);
 }
@@ -1164,18 +1267,17 @@ async function createTeam() {
 async function saveTeam(teamId) {
   const name = document.getElementById(`sName-${teamId}`).value.trim();
   const owner = document.getElementById(`sOwner-${teamId}`).value.trim();
+  const color = document.getElementById(`sColor-${teamId}`).value;
   const res = await api(`/teams/${teamId}`, {
-    method: 'PATCH', body: JSON.stringify({ name, owner }),
+    method: 'PATCH', body: JSON.stringify({ name, owner, color }),
   });
   const msg = document.getElementById(`sMsg-${teamId}`);
   msg.style.color = res.ok ? 'var(--green)' : 'var(--red)';
   msg.textContent = res.ok ? '✓ Saved' : '✗ ' + res.error;
   if (res.ok) {
-    // Refresh team list in header
     const idx = state.teams.findIndex(t => t.id === teamId);
-    if (idx >= 0) { state.teams[idx].name = name; state.teams[idx].owner = owner; }
-    populateTeamSelect();
-    if (state.myTeamId === teamId) document.getElementById('teamSelect').value = teamId;
+    if (idx >= 0) { state.teams[idx].name = name; state.teams[idx].owner = owner; state.teams[idx].color = color; }
+    renderTeamBar();
     loadRosterSelector();
   }
   setTimeout(() => { msg.textContent = ''; }, 3000);
@@ -1191,6 +1293,12 @@ function esc(str) {
 // ============================================================
 // Boot
 // ============================================================
+document.addEventListener('click', e => {
+  if (!document.getElementById('teamBar').contains(e.target)) {
+    document.getElementById('teamPicker').classList.add('hidden');
+  }
+});
+
 init();
 </script>
 </body>

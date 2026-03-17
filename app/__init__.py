@@ -101,6 +101,17 @@ def create_app() -> Flask:
     app.secret_key = os.environ.get("SECRET_KEY", "dev-insecure-key")
     app.config["CONFIG"] = load_config()
 
+    # Migrate existing DBs: add color column if absent
+    db_path = os.environ.get("DATABASE_PATH", str(DEFAULT_DB_PATH))
+    _conn = sqlite3.connect(db_path)
+    try:
+        _conn.execute("ALTER TABLE teams ADD COLUMN color TEXT NOT NULL DEFAULT '#e85d26'")
+        _conn.commit()
+    except sqlite3.OperationalError:
+        pass  # column already exists
+    finally:
+        _conn.close()
+
     # Ensure DB schema is applied
     init_db(app)
 

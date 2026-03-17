@@ -7,7 +7,8 @@ PRAGMA foreign_keys=ON;
 CREATE TABLE IF NOT EXISTS teams (
     id      INTEGER PRIMARY KEY,
     name    TEXT NOT NULL UNIQUE,
-    owner   TEXT NOT NULL
+    owner   TEXT NOT NULL,
+    color   TEXT NOT NULL DEFAULT '#e85d26'
 );
 
 CREATE TABLE IF NOT EXISTS players (
