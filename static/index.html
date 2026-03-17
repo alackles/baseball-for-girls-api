@@ -471,6 +471,19 @@
 
 <!-- ===================== SETTINGS VIEW ===================== -->
 <div id="view-settings" class="view">
+  <div class="card" style="margin-bottom:1rem">
+    <h2>Add Team</h2>
+    <div class="field">
+      <label>Team Name</label>
+      <input type="text" id="newTeamName" placeholder="e.g. The Sluggers" />
+    </div>
+    <div class="field">
+      <label>Owner Name</label>
+      <input type="text" id="newTeamOwner" placeholder="e.g. Alex" />
+    </div>
+    <button class="btn btn-primary btn-sm" onclick="createTeam()">Add Team</button>
+    <span id="newTeamMsg" style="margin-left:0.5rem;font-size:0.82rem;"></span>
+  </div>
   <div class="settings-grid" id="settingsGrid">
     <div class="loading">Loading teams...</div>
   </div>
@@ -1129,6 +1142,23 @@ async function loadSettings() {
       <span id="sMsg-${t.id}" style="margin-left:0.5rem;font-size:0.82rem;"></span>
     </div>
   `).join('');
+}
+
+async function createTeam() {
+  const name = document.getElementById('newTeamName').value.trim();
+  const owner = document.getElementById('newTeamOwner').value.trim();
+  const msg = document.getElementById('newTeamMsg');
+  const res = await api('/teams', { method: 'POST', body: JSON.stringify({ name, owner }) });
+  msg.style.color = res.ok ? 'var(--green)' : 'var(--red)';
+  msg.textContent = res.ok ? '✓ Team added' : '✗ ' + res.error;
+  if (res.ok) {
+    document.getElementById('newTeamName').value = '';
+    document.getElementById('newTeamOwner').value = '';
+    await loadSettings();
+    const data = await api('/league');
+    if (data.ok) { state.teams = data.teams; populateTeamSelect(); loadRosterSelector(); }
+  }
+  setTimeout(() => { msg.textContent = ''; }, 3000);
 }
 
 async function saveTeam(teamId) {

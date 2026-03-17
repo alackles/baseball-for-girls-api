@@ -80,6 +80,19 @@ def league():
     )
 
 
+@bp.post("/teams")
+def create_team():
+    db = get_db(current_app)
+    data = request.get_json(silent=True) or {}
+    name = data.get("name", "").strip()
+    owner = data.get("owner", "").strip()
+    if not name or not owner:
+        return _err("Name and owner are required.")
+    cur = db.execute("INSERT INTO teams (name, owner) VALUES (?,?)", (name, owner))
+    db.commit()
+    return _ok(team_id=cur.lastrowid)
+
+
 @bp.patch("/teams/<int:team_id>")
 def update_team(team_id: int):
     db = get_db(current_app)
