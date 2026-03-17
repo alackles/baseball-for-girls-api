@@ -1,0 +1,1170 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Baseball for Girls</title>
+<style>
+  :root {
+    --bg: #0f1117;
+    --surface: #1a1d27;
+    --surface2: #242736;
+    --border: #2e3248;
+    --accent: #e85d26;
+    --accent2: #f0a500;
+    --text: #e8eaf0;
+    --muted: #7a7f9a;
+    --green: #3ecf6e;
+    --red: #e85d6e;
+    --radius: 8px;
+    --font: 'Georgia', serif;
+    --mono: 'Courier New', monospace;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--font);
+    min-height: 100vh;
+  }
+
+  /* ---- Header ---- */
+  header {
+    background: var(--surface);
+    border-bottom: 2px solid var(--accent);
+    padding: 1rem 1.5rem;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+    flex-wrap: wrap;
+  }
+  header h1 {
+    font-size: 1.5rem;
+    letter-spacing: 0.05em;
+    color: var(--accent);
+    text-transform: uppercase;
+  }
+  header h1 span { color: var(--text); }
+
+  /* ---- Nav ---- */
+  nav {
+    display: flex;
+    gap: 0.25rem;
+    background: var(--surface2);
+    border-bottom: 1px solid var(--border);
+    padding: 0 1.5rem;
+    overflow-x: auto;
+  }
+  nav button {
+    background: none;
+    border: none;
+    color: var(--muted);
+    padding: 0.75rem 1.25rem;
+    cursor: pointer;
+    font-family: var(--font);
+    font-size: 0.9rem;
+    border-bottom: 3px solid transparent;
+    transition: all 0.15s;
+    white-space: nowrap;
+  }
+  nav button:hover { color: var(--text); }
+  nav button.active {
+    color: var(--accent);
+    border-bottom-color: var(--accent);
+  }
+
+  /* ---- Main layout ---- */
+  main { padding: 1.5rem; max-width: 1200px; margin: 0 auto; }
+  .view { display: none; }
+  .view.active { display: block; }
+
+  /* ---- Cards ---- */
+  .card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 1.25rem;
+    margin-bottom: 1rem;
+  }
+  .card h2 {
+    font-size: 1rem;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--muted);
+    margin-bottom: 1rem;
+    padding-bottom: 0.5rem;
+    border-bottom: 1px solid var(--border);
+  }
+
+  /* ---- Tables ---- */
+  table { width: 100%; border-collapse: collapse; font-size: 0.9rem; }
+  th {
+    text-align: left;
+    padding: 0.5rem 0.75rem;
+    color: var(--muted);
+    font-size: 0.8rem;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    border-bottom: 1px solid var(--border);
+    font-weight: normal;
+  }
+  td { padding: 0.5rem 0.75rem; border-bottom: 1px solid var(--border); }
+  tr:last-child td { border-bottom: none; }
+  tr:hover td { background: var(--surface2); }
+
+  /* ---- Buttons ---- */
+  .btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+    padding: 0.45rem 1rem;
+    border-radius: var(--radius);
+    border: none;
+    cursor: pointer;
+    font-family: var(--font);
+    font-size: 0.85rem;
+    transition: opacity 0.15s;
+  }
+  .btn:hover { opacity: 0.85; }
+  .btn:disabled { opacity: 0.4; cursor: not-allowed; }
+  .btn-primary { background: var(--accent); color: #fff; }
+  .btn-secondary { background: var(--surface2); color: var(--text); border: 1px solid var(--border); }
+  .btn-danger { background: var(--red); color: #fff; }
+  .btn-sm { padding: 0.3rem 0.65rem; font-size: 0.78rem; }
+
+  /* ---- Forms ---- */
+  input[type="text"], input[type="number"], select {
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    color: var(--text);
+    padding: 0.45rem 0.75rem;
+    font-family: var(--font);
+    font-size: 0.9rem;
+    outline: none;
+    width: 100%;
+  }
+  input:focus, select:focus { border-color: var(--accent); }
+  label { font-size: 0.82rem; color: var(--muted); display: block; margin-bottom: 0.25rem; }
+  .field { margin-bottom: 0.75rem; }
+
+  /* ---- Badges ---- */
+  .badge {
+    display: inline-block;
+    padding: 0.15rem 0.5rem;
+    border-radius: 3px;
+    font-size: 0.75rem;
+    font-family: var(--mono);
+    font-weight: bold;
+    letter-spacing: 0.04em;
+  }
+  .badge-pos { background: #1e2d4a; color: #6ab0f5; }
+  .badge-il  { background: #3a1a1a; color: var(--red); }
+  .badge-chaos { background: #2a1f00; color: var(--accent2); }
+
+  /* ---- Draft specific ---- */
+  .draft-grid { display: grid; grid-template-columns: 1fr 380px; gap: 1rem; }
+  @media (max-width: 900px) { .draft-grid { grid-template-columns: 1fr; } }
+
+  .pick-clock {
+    text-align: center;
+    padding: 1.5rem;
+    background: var(--surface2);
+    border-radius: var(--radius);
+    border: 1px solid var(--border);
+    margin-bottom: 1rem;
+  }
+  .pick-clock .team-name {
+    font-size: 1.4rem;
+    color: var(--accent);
+    margin-bottom: 0.25rem;
+  }
+  .pick-clock .pick-label { color: var(--muted); font-size: 0.85rem; }
+  .pick-clock .countdown {
+    font-size: 2.5rem;
+    font-family: var(--mono);
+    color: var(--accent2);
+    margin: 0.5rem 0;
+  }
+  .pick-clock .countdown.urgent { color: var(--red); animation: pulse 1s infinite; }
+  @keyframes pulse { 0%,100% { opacity:1; } 50% { opacity:0.5; } }
+
+  .player-search-row {
+    display: flex;
+    gap: 0.5rem;
+    margin-bottom: 0.75rem;
+    flex-wrap: wrap;
+  }
+  .player-search-row input { flex: 1; min-width: 150px; }
+  .player-search-row select { width: auto; }
+
+  .player-list { max-height: 420px; overflow-y: auto; }
+  .player-item {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0.5rem 0.75rem;
+    border-bottom: 1px solid var(--border);
+    gap: 0.5rem;
+  }
+  .player-item:hover { background: var(--surface2); }
+  .player-item .player-name { flex: 1; font-size: 0.9rem; }
+  .player-item .player-pos { width: 40px; text-align: center; }
+
+  .pick-log { max-height: 300px; overflow-y: auto; }
+  .pick-log-item {
+    display: flex;
+    gap: 0.75rem;
+    padding: 0.4rem 0.5rem;
+    border-bottom: 1px solid var(--border);
+    font-size: 0.82rem;
+  }
+  .pick-log-item .pick-num { color: var(--muted); font-family: var(--mono); min-width: 30px; }
+  .pick-log-item .pick-team { color: var(--accent2); min-width: 100px; }
+  .pick-log-item .auto-tag { color: var(--muted); font-size: 0.72rem; }
+
+  /* ---- Queue manager ---- */
+  .queue-list { max-height: 280px; overflow-y: auto; }
+  .queue-item {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.4rem 0.5rem;
+    border-bottom: 1px solid var(--border);
+    cursor: grab;
+    font-size: 0.85rem;
+  }
+  .queue-item:hover { background: var(--surface2); }
+  .queue-item .drag-handle { color: var(--muted); cursor: grab; }
+  .queue-item .q-rank { color: var(--muted); font-family: var(--mono); min-width: 24px; }
+
+  /* ---- Standings ---- */
+  .rank-1 td:first-child { color: var(--accent2); }
+  .rank-2 td:first-child { color: #b0b0b0; }
+  .rank-3 td:first-child { color: #cd7f32; }
+
+  .sparkline {
+    display: flex;
+    gap: 2px;
+    align-items: flex-end;
+    height: 30px;
+  }
+  .sparkline-bar {
+    width: 8px;
+    background: var(--accent);
+    border-radius: 2px 2px 0 0;
+    opacity: 0.7;
+    min-height: 2px;
+  }
+
+  /* ---- Trades ---- */
+  .trade-window-banner {
+    padding: 0.75rem 1rem;
+    border-radius: var(--radius);
+    margin-bottom: 1rem;
+    font-size: 0.88rem;
+  }
+  .trade-window-open { background: #0d2a1a; border: 1px solid var(--green); color: var(--green); }
+  .trade-window-closed { background: #1a0d0d; border: 1px solid var(--red); color: var(--red); }
+
+  .trade-card {
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 1rem;
+    margin-bottom: 0.75rem;
+  }
+  .trade-card .trade-meta { font-size: 0.8rem; color: var(--muted); margin-bottom: 0.5rem; }
+  .trade-card .trade-players { display: flex; gap: 1rem; flex-wrap: wrap; }
+  .trade-side { flex: 1; min-width: 140px; }
+  .trade-side h4 { font-size: 0.78rem; color: var(--muted); text-transform: uppercase; margin-bottom: 0.3rem; }
+
+  .status-badge {
+    display: inline-block;
+    padding: 0.15rem 0.5rem;
+    border-radius: 3px;
+    font-size: 0.72rem;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+  }
+  .status-pending  { background: #2a2200; color: var(--accent2); }
+  .status-accepted { background: #0d2a1a; color: var(--green); }
+  .status-rejected { background: #1a0d0d; color: var(--red); }
+  .status-executed { background: #0d1a2a; color: #6ab0f5; }
+
+  /* ---- Roster view ---- */
+  .roster-selector { display: flex; gap: 0.5rem; margin-bottom: 1rem; flex-wrap: wrap; }
+  .roster-selector button {
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    color: var(--text);
+    padding: 0.4rem 0.9rem;
+    border-radius: var(--radius);
+    cursor: pointer;
+    font-family: var(--font);
+    font-size: 0.85rem;
+  }
+  .roster-selector button.active { border-color: var(--accent); color: var(--accent); }
+
+  /* ---- Settings ---- */
+  .settings-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; }
+  @media (max-width: 600px) { .settings-grid { grid-template-columns: 1fr; } }
+
+  /* ---- Utility ---- */
+  .pts-pos { color: var(--green); }
+  .pts-neg { color: var(--red); }
+  .text-muted { color: var(--muted); font-size: 0.85rem; }
+  .flex { display: flex; align-items: center; gap: 0.5rem; }
+  .spacer { flex: 1; }
+  .mt { margin-top: 0.75rem; }
+  .loading { color: var(--muted); padding: 1.5rem; text-align: center; font-style: italic; }
+  .error-msg { color: var(--red); font-size: 0.85rem; padding: 0.5rem; background: #1a0d0d;
+               border-radius: var(--radius); margin-top: 0.5rem; }
+</style>
+</head>
+<body>
+
+<header>
+  <h1 id="leagueTitle">⚾ <span>Baseball for Girls</span></h1>
+  <div class="flex">
+    <label for="teamSelect" style="white-space:nowrap">My Team:</label>
+    <select id="teamSelect" style="width:180px;" onchange="onTeamChange()">
+      <option value="">— select —</option>
+    </select>
+  </div>
+</header>
+
+<nav>
+  <button class="active" onclick="showView('draft')">Draft Board</button>
+  <button onclick="showView('standings')">Standings</button>
+  <button onclick="showView('rosters')">Rosters</button>
+  <button onclick="showView('trades')">Trades</button>
+  <button onclick="showView('settings')">Settings</button>
+</nav>
+
+<main>
+
+<!-- ===================== DRAFT VIEW ===================== -->
+<div id="view-draft" class="view active">
+  <div class="draft-grid">
+
+    <!-- Left: player pool + pick submission -->
+    <div>
+      <div class="card">
+        <h2>Player Pool</h2>
+        <div class="player-search-row">
+          <input type="text" id="playerSearch" placeholder="Search players..." oninput="searchPlayers()" />
+          <select id="posFilter" onchange="searchPlayers()">
+            <option value="">All Positions</option>
+            <option>C</option><option>1B</option><option>2B</option>
+            <option>3B</option><option>SS</option><option>OF</option>
+            <option>SP</option><option>RP</option>
+          </select>
+          <label class="flex" style="white-space:nowrap; color:var(--muted)">
+            <input type="checkbox" id="availableOnly" onchange="searchPlayers()" checked /> Available only
+          </label>
+        </div>
+        <div class="player-list" id="playerList">
+          <div class="loading">Search for players above</div>
+        </div>
+      </div>
+
+      <div class="card" id="draftStatusCard">
+        <h2>Pick Clock</h2>
+        <div id="pickClockArea"><div class="loading">Loading draft state...</div></div>
+      </div>
+    </div>
+
+    <!-- Right: pick log + queue -->
+    <div>
+      <div class="card">
+        <h2>Recent Picks</h2>
+        <div class="pick-log" id="pickLog"><div class="loading">—</div></div>
+      </div>
+
+      <div class="card">
+        <h2>My Queue <span class="text-muted" style="text-transform:none;font-size:0.8rem">(autopick priority)</span></h2>
+        <div class="player-search-row">
+          <input type="text" id="queueSearch" placeholder="Add player to queue..." oninput="searchQueueAdd()" />
+        </div>
+        <div id="queueSearchResults" style="max-height:120px;overflow-y:auto;margin-bottom:0.5rem;"></div>
+        <div class="queue-list" id="queueList"><div class="loading">No players queued</div></div>
+        <button class="btn btn-secondary btn-sm mt" onclick="saveQueue()">Save Queue</button>
+        <div id="queueMsg"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ===================== STANDINGS VIEW ===================== -->
+<div id="view-standings" class="view">
+  <div class="card">
+    <h2>Season Standings</h2>
+    <div id="standingsTable"><div class="loading">Loading...</div></div>
+  </div>
+</div>
+
+<!-- ===================== ROSTERS VIEW ===================== -->
+<div id="view-rosters" class="view">
+  <div class="roster-selector" id="rosterSelector"></div>
+  <div class="card">
+    <h2 id="rosterTeamTitle">Select a team</h2>
+    <div id="rosterTable"><div class="loading">—</div></div>
+  </div>
+  <!-- Free agent add section -->
+  <div class="card" id="faCard" style="display:none">
+    <h2>Add Free Agent</h2>
+    <div class="player-search-row">
+      <input type="text" id="faSearch" placeholder="Search available players..." oninput="searchFA()" />
+      <select id="faPosFilter" onchange="searchFA()">
+        <option value="">All Positions</option>
+        <option>C</option><option>1B</option><option>2B</option>
+        <option>3B</option><option>SS</option><option>OF</option>
+        <option>SP</option><option>RP</option>
+      </select>
+    </div>
+    <div id="faResults" style="max-height:240px;overflow-y:auto;"></div>
+    <div id="faMsg"></div>
+  </div>
+</div>
+
+<!-- ===================== TRADES VIEW ===================== -->
+<div id="view-trades" class="view">
+  <div id="tradeWindowBanner"></div>
+
+  <div class="card" id="proposeCard">
+    <h2>Propose a Trade</h2>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:1rem;">
+      <div>
+        <div class="field">
+          <label>My team</label>
+          <select id="tradePropTeam" onchange="loadTradeRosters()">
+            <option value="">—</option>
+          </select>
+        </div>
+        <label style="margin-bottom:0.4rem">Players I'm offering</label>
+        <div id="tradeOfferPool" style="max-height:180px;overflow-y:auto;"></div>
+      </div>
+      <div>
+        <div class="field">
+          <label>Their team</label>
+          <select id="tradeRecvTeam" onchange="loadTradeRosters()">
+            <option value="">—</option>
+          </select>
+        </div>
+        <label style="margin-bottom:0.4rem">Players I want</label>
+        <div id="tradeRequestPool" style="max-height:180px;overflow-y:auto;"></div>
+      </div>
+    </div>
+    <div class="mt flex">
+      <button class="btn btn-primary" onclick="submitTrade()">Propose Trade</button>
+      <div id="tradeMsg" style="margin-left:0.75rem;font-size:0.85rem;"></div>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2>Trade History</h2>
+    <div id="tradeList"><div class="loading">Loading...</div></div>
+  </div>
+</div>
+
+<!-- ===================== SETTINGS VIEW ===================== -->
+<div id="view-settings" class="view">
+  <div class="settings-grid" id="settingsGrid">
+    <div class="loading">Loading teams...</div>
+  </div>
+</div>
+
+</main>
+
+<script>
+// ============================================================
+// CONFIG — change BACKEND_URL after deploying to Render
+// ============================================================
+const BACKEND_URL = 'http://localhost:5000';
+
+// ============================================================
+// State
+// ============================================================
+let state = {
+  teams: [],
+  myTeamId: parseInt(localStorage.getItem('myTeamId')) || null,
+  draftState: null,
+  draftPollInterval: null,
+  queue: [],          // array of mlbam_ids in rank order
+  queueDetails: [],   // full player objects matching queue
+  selectedRosterTeam: null,
+  tradeWindowOpen: false,
+  offeringIds: new Set(),
+  requestingIds: new Set(),
+};
+
+// ============================================================
+// API helper
+// ============================================================
+async function api(path, opts = {}) {
+  try {
+    const res = await fetch(BACKEND_URL + '/api' + path, {
+      headers: { 'Content-Type': 'application/json' },
+      ...opts,
+    });
+    return await res.json();
+  } catch (e) {
+    return { ok: false, error: e.message };
+  }
+}
+
+// ============================================================
+// Bootstrap
+// ============================================================
+async function init() {
+  const data = await api('/league');
+  if (!data.ok) { console.error(data.error); return; }
+  state.teams = data.teams;
+  document.getElementById('leagueTitle').innerHTML =
+    `⚾ <span>${data.league_name}</span>`;
+  populateTeamSelect();
+  if (state.myTeamId) {
+    document.getElementById('teamSelect').value = state.myTeamId;
+  }
+  updateTradeWindowBanner(data.trade_window);
+  state.tradeWindowOpen = data.trade_window.open;
+
+  // Start draft polling
+  startDraftPoll();
+  loadStandings();
+  loadRosterSelector();
+  loadTrades();
+  loadSettings();
+}
+
+function populateTeamSelect() {
+  const sel = document.getElementById('teamSelect');
+  sel.innerHTML = '<option value="">— select —</option>';
+  state.teams.forEach(t => {
+    const opt = document.createElement('option');
+    opt.value = t.id;
+    opt.textContent = t.name;
+    sel.appendChild(opt);
+  });
+}
+
+function onTeamChange() {
+  const sel = document.getElementById('teamSelect');
+  state.myTeamId = parseInt(sel.value) || null;
+  localStorage.setItem('myTeamId', state.myTeamId || '');
+  loadQueueForMyTeam();
+  refreshDraftUI();
+}
+
+// ============================================================
+// View routing
+// ============================================================
+function showView(name) {
+  document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
+  document.querySelectorAll('nav button').forEach(b => b.classList.remove('active'));
+  document.getElementById('view-' + name).classList.add('active');
+  event.target.classList.add('active');
+
+  if (name === 'standings') loadStandings();
+  if (name === 'trades') loadTrades();
+  if (name === 'settings') loadSettings();
+}
+
+// ============================================================
+// Draft
+// ============================================================
+function startDraftPoll() {
+  refreshDraftUI();
+  state.draftPollInterval = setInterval(refreshDraftUI, 10000);
+}
+
+async function refreshDraftUI() {
+  const data = await api('/draft/state');
+  if (!data.ok) return;
+  state.draftState = data;
+  renderPickClock(data);
+  renderPickLog(data.pick_log || []);
+}
+
+function renderPickClock(data) {
+  const el = document.getElementById('pickClockArea');
+  if (data.status === 'complete') {
+    el.innerHTML = '<div style="text-align:center;padding:1rem;color:var(--green)">✓ Draft Complete</div>';
+    return;
+  }
+  if (data.status === 'pending') {
+    el.innerHTML = '<div class="loading">Draft has not started yet.</div>';
+    return;
+  }
+  const cp = data.current_pick;
+  if (!cp) return;
+
+  const isMyPick = state.myTeamId && cp.team_id === state.myTeamId;
+  const secs = cp.time_remaining_seconds || 0;
+  const urgent = secs < 3600;
+  const timeStr = formatSeconds(secs);
+
+  el.innerHTML = `
+    <div class="pick-clock">
+      <div class="pick-label">Round ${cp.round}, Pick ${cp.pick_in_round} (Overall #${cp.pick_number})</div>
+      <div class="team-name">${cp.team_name}</div>
+      <div class="countdown ${urgent ? 'urgent' : ''}">${timeStr}</div>
+      <div class="text-muted">remaining</div>
+    </div>
+    ${isMyPick ? '<div style="text-align:center;color:var(--green);margin-bottom:0.5rem">⬆ It\'s your pick! Select a player above.</div>' : ''}
+    <div style="text-align:center;color:var(--muted);font-size:0.8rem">${data.completed_picks} of ${data.total_picks} picks made</div>
+  `;
+}
+
+function renderPickLog(log) {
+  const el = document.getElementById('pickLog');
+  if (!log.length) { el.innerHTML = '<div class="loading">No picks yet</div>'; return; }
+  el.innerHTML = [...log].reverse().map(p => `
+    <div class="pick-log-item">
+      <span class="pick-num">#${p.pick_number}</span>
+      <span class="pick-team">${p.team_name}</span>
+      <span>${p.player_name || '—'}</span>
+      <span class="badge badge-pos">${p.position || '?'}</span>
+      ${p.autopicked ? '<span class="auto-tag">auto</span>' : ''}
+    </div>
+  `).join('');
+}
+
+function formatSeconds(s) {
+  const h = Math.floor(s / 3600);
+  const m = Math.floor((s % 3600) / 60);
+  const sec = s % 60;
+  if (h > 0) return `${h}h ${m}m`;
+  if (m > 0) return `${m}m ${String(sec).padStart(2,'0')}s`;
+  return `${sec}s`;
+}
+
+// ---- Player search ----
+let searchTimeout;
+function searchPlayers() {
+  clearTimeout(searchTimeout);
+  searchTimeout = setTimeout(_doPlayerSearch, 300);
+}
+
+async function _doPlayerSearch() {
+  const q = document.getElementById('playerSearch').value.trim();
+  const pos = document.getElementById('posFilter').value;
+  const availOnly = document.getElementById('availableOnly').checked;
+  if (q.length < 2 && !pos) {
+    document.getElementById('playerList').innerHTML = '<div class="loading">Type to search</div>';
+    return;
+  }
+  const params = new URLSearchParams({ q: q || ' ', available_only: availOnly });
+  if (pos) params.append('position', pos);
+  const data = await api('/players/search?' + params);
+  if (!data.ok) return;
+  renderPlayerList(data.players || []);
+}
+
+function renderPlayerList(players) {
+  const el = document.getElementById('playerList');
+  if (!players.length) { el.innerHTML = '<div class="loading">No players found</div>'; return; }
+
+  const isDraftActive = state.draftState?.status === 'active';
+  const isMyPick = isDraftActive && state.draftState?.current_pick?.team_id === state.myTeamId;
+
+  el.innerHTML = players.map(p => `
+    <div class="player-item">
+      <span class="player-name">${p.name_full}</span>
+      <span class="text-muted" style="font-size:0.78rem;min-width:35px">${p.team || ''}</span>
+      <span class="player-pos"><span class="badge badge-pos">${p.position || '?'}</span></span>      
+      ${p.available ? `
+        <button class="btn btn-secondary btn-sm" onclick="addToQueue(${p.mlbam_id}, '${esc(p.name_full)}', '${p.position||''}')">+ Queue</button>
+        ${isMyPick ? `<button class="btn btn-primary btn-sm" onclick="draftPlayer(${p.mlbam_id}, '${esc(p.name_full)}')">Draft</button>` : ''}
+      ` : `<span class="text-muted" style="font-size:0.78rem">Drafted</span>`}
+    </div>
+  `).join('');
+}
+
+async function draftPlayer(mlbamId, name) {
+  if (!state.myTeamId) { alert('Select your team first.'); return; }
+  if (!confirm(`Draft ${name}?`)) return;
+  const res = await api('/draft/pick', {
+    method: 'POST',
+    body: JSON.stringify({ team_id: state.myTeamId, mlbam_id: mlbamId }),
+  });
+  if (!res.ok) { alert(res.error); return; }
+  refreshDraftUI();
+  _doPlayerSearch();
+}
+
+// ---- Queue management ----
+let queueSearchTimeout;
+function searchQueueAdd() {
+  clearTimeout(queueSearchTimeout);
+  queueSearchTimeout = setTimeout(_doQueueSearch, 300);
+}
+
+async function _doQueueSearch() {
+  const q = document.getElementById('queueSearch').value.trim();
+  if (q.length < 2) { document.getElementById('queueSearchResults').innerHTML = ''; return; }
+  const data = await api(`/players/search?q=${encodeURIComponent(q)}&available_only=true`);
+  const el = document.getElementById('queueSearchResults');
+  if (!data.ok || !data.players.length) { el.innerHTML = ''; return; }
+  el.innerHTML = data.players.slice(0, 8).map(p => `
+    <div class="player-item">
+     <span class="player-name">${p.name_full}</span>
+      <span class="text-muted" style="font-size:0.78rem;min-width:35px">${p.team || ''}</span>
+      <span class="player-pos"><span class="badge badge-pos">${p.position || '?'}</span></span>
+      <button class="btn btn-secondary btn-sm" onclick="addToQueue(${p.mlbam_id}, '${esc(p.name_full)}', '${p.position||''}')">+ Add</button>
+    </div>
+  `).join('');
+}
+
+function addToQueue(mlbamId, name, pos) {
+  if (state.queue.find(q => q.mlbam_id === mlbamId)) return;
+  state.queue.push({ mlbam_id: mlbamId, name_full: name, position: pos });
+  renderQueue();
+}
+
+function removeFromQueue(mlbamId) {
+  state.queue = state.queue.filter(q => q.mlbam_id !== mlbamId);
+  renderQueue();
+}
+
+function renderQueue() {
+  const el = document.getElementById('queueList');
+  if (!state.queue.length) { el.innerHTML = '<div class="loading">Queue is empty</div>'; return; }
+  el.innerHTML = state.queue.map((p, i) => `
+    <div class="queue-item" draggable="true" data-idx="${i}"
+         ondragstart="dragStart(event)" ondragover="dragOver(event)" ondrop="dragDrop(event)">
+      <span class="drag-handle">⠿</span>
+      <span class="q-rank">${i+1}</span>
+      <span style="flex:1">${p.name_full}</span>
+      <span class="badge badge-pos">${p.position || '?'}</span>
+      <button class="btn btn-secondary btn-sm" onclick="removeFromQueue(${p.mlbam_id})">✕</button>
+    </div>
+  `).join('');
+}
+
+async function loadQueueForMyTeam() {
+  if (!state.myTeamId) return;
+  const data = await api(`/draft/queue/${state.myTeamId}`);
+  if (!data.ok) return;
+  state.queue = data.queue.map(q => ({
+    mlbam_id: q.mlbam_id, name_full: q.name_full, position: q.position
+  }));
+  renderQueue();
+}
+
+async function saveQueue() {
+  if (!state.myTeamId) { alert('Select your team first.'); return; }
+  const ids = state.queue.map(q => q.mlbam_id);
+  const res = await api(`/draft/queue/${state.myTeamId}`, {
+    method: 'POST',
+    body: JSON.stringify({ queue: ids }),
+  });
+  const msg = document.getElementById('queueMsg');
+  msg.textContent = res.ok ? '✓ Queue saved' : '✗ ' + res.error;
+  msg.style.color = res.ok ? 'var(--green)' : 'var(--red)';
+  setTimeout(() => { msg.textContent = ''; }, 3000);
+}
+
+// Drag-to-reorder
+let dragIdx = null;
+function dragStart(e) { dragIdx = parseInt(e.currentTarget.dataset.idx); }
+function dragOver(e) { e.preventDefault(); }
+function dragDrop(e) {
+  const targetIdx = parseInt(e.currentTarget.dataset.idx);
+  if (dragIdx === null || dragIdx === targetIdx) return;
+  const moved = state.queue.splice(dragIdx, 1)[0];
+  state.queue.splice(targetIdx, 0, moved);
+  dragIdx = null;
+  renderQueue();
+}
+
+// ============================================================
+// Standings
+// ============================================================
+async function loadStandings() {
+  const data = await api('/standings');
+  const el = document.getElementById('standingsTable');
+  if (!data.ok) { el.innerHTML = '<div class="error-msg">' + data.error + '</div>'; return; }
+  if (!data.standings.length) { el.innerHTML = '<div class="loading">No scores yet</div>'; return; }
+
+  const maxPts = Math.max(...data.standings.flatMap(t => t.weekly.map(w => w.points)), 1);
+
+  el.innerHTML = `
+    <table>
+      <thead><tr>
+        <th>Rank</th><th>Team</th><th>Owner</th>
+        <th style="text-align:right">Total Pts</th>
+        <th>Weekly</th>
+      </tr></thead>
+      <tbody>
+      ${data.standings.map(t => `
+        <tr class="rank-${t.rank}">
+          <td>${t.rank}</td>
+          <td>${t.team_name}</td>
+          <td>${t.owner}</td>
+          <td style="text-align:right;font-family:var(--mono)">${t.total_points.toFixed(1)}</td>
+          <td>
+            <div class="sparkline">
+              ${t.weekly.map(w => {
+                const h = Math.max(2, Math.round((w.points / maxPts) * 30));
+                return `<div class="sparkline-bar" style="height:${h}px" title="Wk ${w.week}: ${w.points.toFixed(1)} pts"></div>`;
+              }).join('')}
+            </div>
+          </td>
+        </tr>
+      `).join('')}
+      </tbody>
+    </table>
+  `;
+}
+
+// ============================================================
+// Rosters
+// ============================================================
+function loadRosterSelector() {
+  const el = document.getElementById('rosterSelector');
+  el.innerHTML = state.teams.map(t => `
+    <button onclick="loadRoster(${t.id})" id="rosterBtn-${t.id}">${t.name}</button>
+  `).join('');
+}
+
+async function loadRoster(teamId) {
+  state.selectedRosterTeam = teamId;
+  document.querySelectorAll('.roster-selector button').forEach(b => b.classList.remove('active'));
+  const btn = document.getElementById('rosterBtn-' + teamId);
+  if (btn) btn.classList.add('active');
+
+  const team = state.teams.find(t => t.id === teamId);
+  document.getElementById('rosterTeamTitle').textContent = team ? team.name + ' — Roster' : 'Roster';
+
+  const data = await api('/roster/' + teamId);
+  const el = document.getElementById('rosterTable');
+  if (!data.ok) { el.innerHTML = '<div class="error-msg">' + data.error + '</div>'; return; }
+
+  const isMyTeam = state.myTeamId === teamId;
+  const roster = data.roster || [];
+
+  if (!roster.length) { el.innerHTML = '<div class="loading">No players on roster</div>'; }
+  else {
+    el.innerHTML = `
+      <table>
+        <thead><tr>
+          <th>Player</th><th>Pos</th><th>Slot</th>
+          <th style="text-align:right">Season Pts</th>
+          ${isMyTeam ? '<th></th>' : ''}
+        </tr></thead>
+        <tbody>
+        ${roster.map(p => `
+          <tr>
+            <td>${p.name_full}</td>
+            <td><span class="badge badge-pos">${p.position || '?'}</span></td>
+            <td>${p.slot === 'IL' ? '<span class="badge badge-il">IL</span>' : 'Active'}</td>
+            <td style="text-align:right;font-family:var(--mono)">${(p.season_points||0).toFixed(1)}</td>
+            ${isMyTeam ? `
+              <td>
+                ${p.slot === 'active'
+                  ? `<button class="btn btn-secondary btn-sm" onclick="moveToIL(${p.mlbam_id})">→ IL</button>
+                     <button class="btn btn-danger btn-sm" onclick="dropPlayer(${p.mlbam_id}, '${esc(p.name_full)}')">Drop</button>`
+                  : `<button class="btn btn-secondary btn-sm" onclick="activatePlayer(${p.mlbam_id})">Activate</button>`}
+              </td>
+            ` : ''}
+          </tr>
+        `).join('')}
+        </tbody>
+      </table>
+    `;
+  }
+
+  // Show FA add section only for own team
+  const faCard = document.getElementById('faCard');
+  faCard.style.display = isMyTeam ? 'block' : 'none';
+}
+
+async function moveToIL(mlbamId) {
+  if (!state.myTeamId) return;
+  const res = await api(`/roster/${state.myTeamId}/il`, {
+    method: 'POST', body: JSON.stringify({ mlbam_id: mlbamId }),
+  });
+  if (!res.ok) { alert(res.error); return; }
+  loadRoster(state.myTeamId);
+}
+
+async function activatePlayer(mlbamId) {
+  if (!state.myTeamId) return;
+  const res = await api(`/roster/${state.myTeamId}/activate`, {
+    method: 'POST', body: JSON.stringify({ mlbam_id: mlbamId }),
+  });
+  if (!res.ok) { alert(res.error); return; }
+  loadRoster(state.myTeamId);
+}
+
+async function dropPlayer(mlbamId, name) {
+  if (!state.myTeamId) return;
+  if (!confirm(`Drop ${name}? This cannot be undone.`)) return;
+  const res = await api(`/roster/${state.myTeamId}/drop`, {
+    method: 'POST', body: JSON.stringify({ mlbam_id: mlbamId }),
+  });
+  if (!res.ok) { alert(res.error); return; }
+  loadRoster(state.myTeamId);
+}
+
+let faTimeout;
+function searchFA() {
+  clearTimeout(faTimeout);
+  faTimeout = setTimeout(_doFASearch, 300);
+}
+
+async function _doFASearch() {
+  const q = document.getElementById('faSearch').value.trim();
+  const pos = document.getElementById('faPosFilter').value;
+  if (q.length < 2 && !pos) { document.getElementById('faResults').innerHTML = ''; return; }
+  const params = new URLSearchParams({ q: q || ' ', available_only: true });
+  if (pos) params.append('position', pos);
+  const data = await api('/players/search?' + params);
+  const el = document.getElementById('faResults');
+  if (!data.ok || !data.players.length) { el.innerHTML = '<div class="loading">No players found</div>'; return; }
+  el.innerHTML = data.players.map(p => `
+    <div class="player-item">
+      <span class="player-name">${p.name_full}</span>
+      <span class="text-muted" style="font-size:0.78rem;min-width:35px">${p.team || ''}</span>
+      <span class="player-pos"><span class="badge badge-pos">${p.position || '?'}</span></span>
+      <button class="btn btn-primary btn-sm" onclick="addFA(${p.mlbam_id}, '${esc(p.name_full)}')">Add</button>
+    </div>
+  `).join('');
+}
+
+async function addFA(mlbamId, name) {
+  if (!state.myTeamId) return;
+  if (!confirm(`Add ${name} to your roster?`)) return;
+  const res = await api(`/roster/${state.myTeamId}/add`, {
+    method: 'POST', body: JSON.stringify({ mlbam_id: mlbamId }),
+  });
+  const msg = document.getElementById('faMsg');
+  msg.textContent = res.ok ? `✓ ${name} added` : '✗ ' + res.error;
+  msg.style.color = res.ok ? 'var(--green)' : 'var(--red)';
+  if (res.ok) loadRoster(state.myTeamId);
+}
+
+// ============================================================
+// Trades
+// ============================================================
+function updateTradeWindowBanner(tw) {
+  const el = document.getElementById('tradeWindowBanner');
+  if (tw.open) {
+    el.innerHTML = `<div class="trade-window-banner trade-window-open">🟢 Trade window is open — closes ${tw.window_close}</div>`;
+  } else {
+    el.innerHTML = `<div class="trade-window-banner trade-window-closed">🔴 Trade window closed — opens ${tw.window_open}${tw.days_until_open > 0 ? ` (${tw.days_until_open} days)` : ''}</div>`;
+  }
+}
+
+async function loadTrades() {
+  const data = await api('/trades');
+  if (!data.ok) return;
+  updateTradeWindowBanner(data.window);
+  state.tradeWindowOpen = data.window.open;
+
+  // Toggle propose form
+  const proposeCard = document.getElementById('proposeCard');
+  proposeCard.style.opacity = state.tradeWindowOpen ? '1' : '0.5';
+  proposeCard.querySelectorAll('button, select, input').forEach(el => {
+    el.disabled = !state.tradeWindowOpen;
+  });
+
+  // Populate team dropdowns
+  ['tradePropTeam', 'tradeRecvTeam'].forEach(id => {
+    const sel = document.getElementById(id);
+    const cur = sel.value;
+    sel.innerHTML = '<option value="">—</option>';
+    state.teams.forEach(t => {
+      const opt = document.createElement('option');
+      opt.value = t.id; opt.textContent = t.name;
+      sel.appendChild(opt);
+    });
+    sel.value = cur;
+  });
+
+  if (state.myTeamId) {
+    document.getElementById('tradePropTeam').value = state.myTeamId;
+    loadTradeRosters();
+  }
+
+  renderTradeList(data.trades || []);
+}
+
+async function loadTradeRosters() {
+  const propId = parseInt(document.getElementById('tradePropTeam').value);
+  const recvId = parseInt(document.getElementById('tradeRecvTeam').value);
+  state.offeringIds = new Set();
+  state.requestingIds = new Set();
+
+  if (propId) {
+    const data = await api('/roster/' + propId);
+    renderTradePool('tradeOfferPool', data.roster || [], state.offeringIds);
+  }
+  if (recvId) {
+    const data = await api('/roster/' + recvId);
+    renderTradePool('tradeRequestPool', data.roster || [], state.requestingIds);
+  }
+}
+
+function renderTradePool(elId, roster, selectedSet) {
+  const el = document.getElementById(elId);
+  if (!roster.length) { el.innerHTML = '<div class="loading">No players</div>'; return; }
+  el.innerHTML = roster.map(p => `
+    <div class="player-item" id="tp-${elId}-${p.mlbam_id}" onclick="toggleTradePlayer('${elId}', ${p.mlbam_id})"
+         style="cursor:pointer;${selectedSet.has(p.mlbam_id)?'background:var(--surface2);border-left:3px solid var(--accent);':''}">
+      <span class="player-name">${p.name_full}</span>
+      <span class="badge badge-pos">${p.position || '?'}</span>
+    </div>
+  `).join('');
+}
+
+function toggleTradePlayer(poolId, mlbamId) {
+  const set = poolId === 'tradeOfferPool' ? state.offeringIds : state.requestingIds;
+  if (set.has(mlbamId)) set.delete(mlbamId);
+  else set.add(mlbamId);
+  const el = document.getElementById(`tp-${poolId}-${mlbamId}`);
+  if (set.has(mlbamId)) {
+    el.style.background = 'var(--surface2)';
+    el.style.borderLeft = '3px solid var(--accent)';
+  } else {
+    el.style.background = '';
+    el.style.borderLeft = '';
+  }
+}
+
+async function submitTrade() {
+  const propTeam = parseInt(document.getElementById('tradePropTeam').value);
+  const recvTeam = parseInt(document.getElementById('tradeRecvTeam').value);
+  const msg = document.getElementById('tradeMsg');
+
+  if (!propTeam || !recvTeam) { msg.textContent = 'Select both teams.'; return; }
+  if (propTeam === recvTeam) { msg.textContent = 'Cannot trade with yourself.'; return; }
+  if (!state.offeringIds.size || !state.requestingIds.size) {
+    msg.textContent = 'Select at least one player from each side.'; return;
+  }
+
+  const res = await api('/trades/propose', {
+    method: 'POST',
+    body: JSON.stringify({
+      proposing_team: propTeam,
+      receiving_team: recvTeam,
+      offering: [...state.offeringIds],
+      requesting: [...state.requestingIds],
+    }),
+  });
+
+  msg.style.color = res.ok ? 'var(--green)' : 'var(--red)';
+  msg.textContent = res.ok ? '✓ Trade proposed!' : '✗ ' + res.error;
+  if (res.ok) loadTrades();
+}
+
+function renderTradeList(trades) {
+  const el = document.getElementById('tradeList');
+  if (!trades.length) { el.innerHTML = '<div class="loading">No trades yet</div>'; return; }
+  el.innerHTML = trades.map(t => {
+    const giving = t.players.filter(p => p.from_team === t.proposing_team_id);
+    const getting = t.players.filter(p => p.to_team === t.proposing_team_id);
+    return `
+      <div class="trade-card">
+        <div class="trade-meta flex">
+          <span>${t.proposing_team_name} → ${t.receiving_team_name}</span>
+          <span class="spacer"></span>
+          <span class="status-badge status-${t.status}">${t.status}</span>
+          <span style="margin-left:0.5rem;color:var(--muted);font-size:0.78rem">${t.proposed_at?.slice(0,10)}</span>
+        </div>
+        <div class="trade-players">
+          <div class="trade-side">
+            <h4>${t.proposing_team_name} gives</h4>
+            ${t.players.filter(p => p.from_team_name === t.proposing_team_name)
+              .map(p => `<div>${p.name_full} <span class="badge badge-pos">${p.position||'?'}</span></div>`).join('') || '—'}
+          </div>
+          <div style="align-self:center;color:var(--muted)">⇄</div>
+          <div class="trade-side">
+            <h4>${t.receiving_team_name} gives</h4>
+            ${t.players.filter(p => p.from_team_name === t.receiving_team_name)
+              .map(p => `<div>${p.name_full} <span class="badge badge-pos">${p.position||'?'}</span></div>`).join('') || '—'}
+          </div>
+        </div>
+        ${t.status === 'pending' && state.myTeamId ?
+          `<div class="mt flex">
+            ${state.teams.find(tm => tm.id === state.myTeamId)?.name === t.receiving_team_name ? `
+              <button class="btn btn-primary btn-sm" onclick="respondTrade(${t.id}, 'accept')">Accept</button>
+              <button class="btn btn-danger btn-sm" onclick="respondTrade(${t.id}, 'reject')">Reject</button>
+            ` : ''}
+          </div>` : ''}
+      </div>
+    `;
+  }).join('');
+}
+
+async function respondTrade(tradeId, action) {
+  if (!state.myTeamId) return;
+  const res = await api(`/trades/${tradeId}/${action}`, {
+    method: 'POST', body: JSON.stringify({ team_id: state.myTeamId }),
+  });
+  if (!res.ok) { alert(res.error); return; }
+  loadTrades();
+}
+
+// ============================================================
+// Settings
+// ============================================================
+async function loadSettings() {
+  const el = document.getElementById('settingsGrid');
+  const data = await api('/league');
+  if (!data.ok) return;
+
+  el.innerHTML = data.teams.map(t => `
+    <div class="card">
+      <h2>Team ${t.id}</h2>
+      <div class="field">
+        <label>Team Name</label>
+        <input type="text" id="sName-${t.id}" value="${esc(t.name)}" />
+      </div>
+      <div class="field">
+        <label>Owner Name</label>
+        <input type="text" id="sOwner-${t.id}" value="${esc(t.owner)}" />
+      </div>
+      <button class="btn btn-primary btn-sm" onclick="saveTeam(${t.id})">Save</button>
+      <span id="sMsg-${t.id}" style="margin-left:0.5rem;font-size:0.82rem;"></span>
+    </div>
+  `).join('');
+}
+
+async function saveTeam(teamId) {
+  const name = document.getElementById(`sName-${teamId}`).value.trim();
+  const owner = document.getElementById(`sOwner-${teamId}`).value.trim();
+  const res = await api(`/teams/${teamId}`, {
+    method: 'PATCH', body: JSON.stringify({ name, owner }),
+  });
+  const msg = document.getElementById(`sMsg-${teamId}`);
+  msg.style.color = res.ok ? 'var(--green)' : 'var(--red)';
+  msg.textContent = res.ok ? '✓ Saved' : '✗ ' + res.error;
+  if (res.ok) {
+    // Refresh team list in header
+    const idx = state.teams.findIndex(t => t.id === teamId);
+    if (idx >= 0) { state.teams[idx].name = name; state.teams[idx].owner = owner; }
+    populateTeamSelect();
+    if (state.myTeamId === teamId) document.getElementById('teamSelect').value = teamId;
+    loadRosterSelector();
+  }
+  setTimeout(() => { msg.textContent = ''; }, 3000);
+}
+
+// ============================================================
+// Utility
+// ============================================================
+function esc(str) {
+  return (str || '').replace(/'/g, "\\'").replace(/"/g, '&quot;');
+}
+
+// ============================================================
+// Boot
+// ============================================================
+init();
+</script>
+</body>
+</html>

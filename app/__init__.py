@@ -1,0 +1,143 @@
+"""
+app/__init__.py
+Flask application factory with APScheduler initialization.
+"""
+
+import os
+import sqlite3
+import json
+from pathlib import Path
+
+from flask import Flask, g
+from flask_cors import CORS
+from apscheduler.schedulers.background import BackgroundScheduler
+
+# ---------------------------------------------------------------------------
+# Paths & config
+# ---------------------------------------------------------------------------
+ROOT = Path(__file__).parent.parent
+CONFIG_PATH = ROOT / "config.json"
+SCHEMA_PATH = ROOT / "schema.sql"
+DEFAULT_DB_PATH = ROOT / "fantasy.db"
+
+
+def load_config() -> dict:
+    with open(CONFIG_PATH) as f:
+        return json.load(f)
+
+
+# ---------------------------------------------------------------------------
+# Database helpers
+# ---------------------------------------------------------------------------
+def get_db(app: Flask) -> sqlite3.Connection:
+    """Return a per-request SQLite connection stored on Flask's g object."""
+    if "db" not in g:
+        db_path = os.environ.get("DATABASE_PATH", str(DEFAULT_DB_PATH))
+        g.db = sqlite3.connect(db_path, detect_types=sqlite3.PARSE_DECLTYPES)
+        g.db.row_factory = sqlite3.Row
+        g.db.execute("PRAGMA foreign_keys=ON")
+        g.db.execute("PRAGMA journal_mode=WAL")
+    return g.db
+
+
+def close_db(e=None):
+    db = g.pop("db", None)
+    if db is not None:
+        db.close()
+
+
+def init_db(app: Flask):
+    """Apply schema.sql to a fresh database."""
+    db_path = os.environ.get("DATABASE_PATH", str(DEFAULT_DB_PATH))
+    conn = sqlite3.connect(db_path)
+    with open(SCHEMA_PATH) as f:
+        conn.executescript(f.read())
+    conn.commit()
+    conn.close()
+
+
+# ---------------------------------------------------------------------------
+# Scheduler jobs (imported lazily to avoid circular imports)
+# ---------------------------------------------------------------------------
+def _autopick_job():
+    """Fired every 5 minutes; processes any expired draft picks."""
+    from app.draft import process_expired_picks
+    # Build a minimal app context so jobs can use get_db
+    app = _get_current_app()
+    with app.app_context():
+        process_expired_picks(app)
+
+
+def _weekly_snapshot_job():
+    """Fired Sunday midnight; locks weekly scores."""
+    from app.scoring import write_weekly_snapshot
+    app = _get_current_app()
+    with app.app_context():
+        write_weekly_snapshot(app)
+
+
+def _apply_pending_trades_job():
+    """Fired Monday 00:05; applies accepted trades for the new week."""
+    from app.trades import apply_accepted_trades
+    app = _get_current_app()
+    with app.app_context():
+        apply_accepted_trades(app)
+
+
+# Module-level reference so jobs can retrieve the app instance
+_app_instance = None
+
+
+def _get_current_app() -> Flask:
+    return _app_instance
+
+
+# ---------------------------------------------------------------------------
+# Application factory
+# ---------------------------------------------------------------------------
+def create_app() -> Flask:
+    global _app_instance
+
+    app = Flask(__name__, static_folder="../static", static_url_path="/")
+    app.secret_key = os.environ.get("SECRET_KEY", "dev-insecure-key")
+    app.config["CONFIG"] = load_config()
+
+    # CORS: allow the gh-pages frontend origin
+    frontend_origin = os.environ.get(
+        "FRONTEND_ORIGIN", "https://alackles.github.io"
+    )
+    CORS(app, origins=[frontend_origin, "http://localhost:*", "http://127.0.0.1:*"])
+
+    # Ensure DB schema is applied
+    init_db(app)
+
+    # Tear-down DB connection after each request
+    app.teardown_appcontext(close_db)
+
+    # Register blueprints
+    from app.api import bp as api_bp
+    app.register_blueprint(api_bp, url_prefix="/api")
+
+    # Serve index.html at root for convenience during local dev
+    @app.route("/")
+    def index():
+        return app.send_static_file("index.html")
+
+    # Start background scheduler
+    scheduler = BackgroundScheduler(daemon=True)
+    scheduler.add_job(_autopick_job, "interval", minutes=5, id="autopick")
+    scheduler.add_job(
+        _weekly_snapshot_job, "cron", day_of_week="sun", hour=0, minute=0, id="weekly"
+    )
+    scheduler.add_job(
+        _apply_pending_trades_job,
+        "cron",
+        day_of_week="mon",
+        hour=0,
+        minute=5,
+        id="trades",
+    )
+    scheduler.start()
+
+    _app_instance = app
+    return app

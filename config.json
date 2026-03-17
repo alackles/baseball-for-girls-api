@@ -1,0 +1,56 @@
+{
+  "league_name": "Friends League",
+  "season": 2026,
+  "pick_timeout_hours": 12,
+  "roster_size": 15,
+  "il_slots": 2,
+  "trade_window_open": "2026-07-17",
+  "trade_window_close": "2026-07-31",
+  "roster_minimums": {
+    "C": 1,
+    "1B": 1,
+    "2B": 1,
+    "3B": 1,
+    "SS": 1,
+    "OF": 3,
+    "SP": 2,
+    "RP": 1
+  },
+  "points": {
+    "batting": {
+      "single": 1,
+      "double": 2,
+      "triple": 3,
+      "home_run": 4,
+      "rbi": 1,
+      "run": 1,
+      "walk": 1,
+      "stolen_base": 2,
+      "hit_by_pitch": 1,
+      "strikeout": -0.5
+    },
+    "pitching": {
+      "inning_pitched": 2,
+      "strikeout": 1,
+      "win": 4,
+      "save": 5,
+      "hold": 2,
+      "earned_run": -2,
+      "walk_allowed": -0.5,
+      "hit_allowed": -0.5,
+      "complete_game": 3,
+      "shutout_bonus": 3
+    },
+    "chaos": {
+      "grand_slam": 8,
+      "walk_off": 5,
+      "stolen_base_of_home": 10,
+      "no_hitter": 20,
+      "perfect_game": 50,
+      "immaculate_inning": 25,
+      "abs_challenge_successful": 3,
+      "abs_challenge_unsuccessful": -1,
+      "position_player_pitching_multiplier": 2.0
+    }
+  }
+}
