@@ -4,6 +4,7 @@ Snake draft engine: order generation, pick submission,
 expiry checking, and autopick logic.
 """
 
+import random
 import sqlite3
 from datetime import datetime, timedelta, timezone
 from flask import Flask
@@ -50,6 +51,7 @@ def initialize_draft(app: Flask):
         raise ValueError("No teams found. Create teams before initializing draft.")
 
     team_ids = [t["id"] for t in teams]
+    random.shuffle(team_ids)
     picks = generate_snake_order(team_ids, roster_size)
 
     for p in picks:
