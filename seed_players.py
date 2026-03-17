@@ -59,8 +59,6 @@ def enrich_active_roster(app):
 if __name__ == "__main__":
     import sqlite3, os
     app = create_app()
-    
-    with app.app_context():
     # Only seed if the player table is empty
     from app import get_db
     with app.app_context():
