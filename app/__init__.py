@@ -9,7 +9,6 @@ import json
 from pathlib import Path
 
 from flask import Flask, g
-from flask_cors import CORS
 from apscheduler.schedulers.background import BackgroundScheduler
 
 # ---------------------------------------------------------------------------
@@ -101,8 +100,6 @@ def create_app() -> Flask:
     app = Flask(__name__, static_folder="../static", static_url_path="/")
     app.secret_key = os.environ.get("SECRET_KEY", "dev-insecure-key")
     app.config["CONFIG"] = load_config()
-
-    CORS(app)
 
     # Ensure DB schema is applied
     init_db(app)
