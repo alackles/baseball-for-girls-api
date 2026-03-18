@@ -411,6 +411,7 @@
   <button onclick="showView('standings')">Standings</button>
   <button onclick="showView('rosters')">Rosters</button>
   <button onclick="showView('trades')">Trades</button>
+  <button onclick="showView('scoring')">Scoring</button>
   <button onclick="showView('settings')">Settings</button>
 </nav>
 
@@ -542,6 +543,11 @@
     <h2>Trade History</h2>
     <div id="tradeList"><div class="loading">Loading...</div></div>
   </div>
+</div>
+
+<!-- ===================== SCORING VIEW ===================== -->
+<div id="view-scoring" class="view">
+  <div id="scoringRules"><div class="loading">Loading...</div></div>
 </div>
 
 <!-- ===================== SETTINGS VIEW ===================== -->
@@ -704,6 +710,7 @@ function showView(name) {
   if (name === 'draft') renderPositionTracker();
   if (name === 'standings') loadStandings();
   if (name === 'trades') loadTrades();
+  if (name === 'scoring') loadScoring();
   if (name === 'settings') loadSettings();
 }
 
@@ -1273,6 +1280,52 @@ async function respondTrade(tradeId, action) {
   });
   if (!res.ok) { alert(res.error); return; }
   loadTrades();
+}
+
+// ============================================================
+// Scoring Rules
+// ============================================================
+function fmtScoringLabel(key) {
+  const overrides = {
+    rbi: 'RBI',
+    abs_challenge_successful: 'ABS Challenge Successful',
+    abs_challenge_unsuccessful: 'ABS Challenge Unsuccessful',
+    position_player_pitching_multiplier: 'Position Player Pitching (multiplier)',
+  };
+  if (overrides[key]) return overrides[key];
+  return key.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
+}
+
+function renderScoringSection(title, rules) {
+  const rows = Object.entries(rules).map(([k, v]) => {
+    const cls = v > 0 ? 'pts-pos' : v < 0 ? 'pts-neg' : '';
+    const display = Number.isInteger(v) ? v : v % 1 === 0 ? v : v;
+    return `<tr>
+      <td>${fmtScoringLabel(k)}</td>
+      <td style="text-align:right;font-family:var(--mono)" class="${cls}">${v > 0 ? '+' : ''}${display}</td>
+    </tr>`;
+  }).join('');
+  return `
+    <div class="card">
+      <h2>${title}</h2>
+      <table style="width:100%">
+        <tbody>${rows}</tbody>
+      </table>
+    </div>`;
+}
+
+async function loadScoring() {
+  const el = document.getElementById('scoringRules');
+  const data = await api('/league');
+  if (!data.ok) { el.innerHTML = '<div class="error-msg">Could not load scoring rules.</div>'; return; }
+  const pts = data.points || {};
+  el.innerHTML = `
+    <div class="settings-grid">
+      ${pts.batting ? renderScoringSection('Batting', pts.batting) : ''}
+      ${pts.pitching ? renderScoringSection('Pitching', pts.pitching) : ''}
+    </div>
+    ${pts.chaos ? renderScoringSection('Chaos Events', pts.chaos) : ''}
+  `;
 }
 
 // ============================================================

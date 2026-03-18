@@ -134,17 +134,27 @@ Then create teams and initialize the draft the same way as local setup.
 Render's free tier has an ephemeral filesystem — every redeploy wipes `fantasy.db`. Before pushing any code changes once the draft has started, snapshot the database via the export endpoint and restore it after the redeploy.
 
 **Before pushing:**
-```bash
-curl https://your-app.onrender.com/api/export > backup.json
-```
+1. Open the site in your browser and wait for it to fully load (wakes the service from sleep)
+2. Navigate to `https://your-app.onrender.com/api/export` and use **Save As** to save the JSON as `backup.json`
 
 **Push your changes and wait for Render to finish redeploying.**
 
 **After redeploying:**
 ```bash
-curl -X POST "https://.onrender.com/api/import?key=YOUR_SECRET_KEY" \
-  -H "Content-Type: application/json" \
-  -d @backup.json
+python - <<'EOF'
+import json, urllib.request
+
+with open("backup.json", "rb") as f:
+    data = f.read()
+
+req = urllib.request.Request(
+    "https://baseball-for-girls.onrender.com/api/import?key=?",
+    data=data,
+    headers={"Content-Type": "application/json"},
+)
+with urllib.request.urlopen(req) as r:
+    print(r.read().decode())
+EOF
 ```
 
 Replace `YOUR_SECRET_KEY` with the value you set in step 3. The import endpoint restores all teams, rosters, draft picks, queues, trades, and scores. It also re-seeds the small set of players referenced by your league (~60–100 rows), so a full `seed_players.py` re-run is not needed.
