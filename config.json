@@ -6,6 +6,7 @@
   "il_slots": 2,
   "trade_window_open": "2026-07-17",
   "trade_window_close": "2026-07-31",
+  "draft_order": [7,6,2,4,5,3,1],
   "roster_minimums": {
     "C": 1,
     "1B": 1,

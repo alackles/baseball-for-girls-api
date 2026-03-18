@@ -51,7 +51,11 @@ def initialize_draft(app: Flask):
         raise ValueError("No teams found. Create teams before initializing draft.")
 
     team_ids = [t["id"] for t in teams]
-    random.shuffle(team_ids)
+    forced_order = cfg.get("draft_order")
+    if forced_order:
+        team_ids = [tid for tid in forced_order if tid in team_ids]
+    else:
+        random.shuffle(team_ids)
     picks = generate_snake_order(team_ids, roster_size)
 
     for p in picks:

@@ -193,6 +193,20 @@ def draft_initialize():
         return _err(str(e))
 
 
+@bp.post("/draft/reset")
+def draft_reset():
+    """Admin endpoint: wipe draft picks and rosters, then re-initialize."""
+    db = get_db(current_app)
+    db.execute("DELETE FROM rosters")
+    db.execute("DELETE FROM draft_picks")
+    db.commit()
+    try:
+        initialize_draft(current_app)
+        return _ok(message="Draft reset and re-initialized.")
+    except Exception as e:
+        return _err(str(e))
+
+
 # ---------------------------------------------------------------------------
 # Players
 # ---------------------------------------------------------------------------

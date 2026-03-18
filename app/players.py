@@ -41,13 +41,6 @@ def seed_from_chadwick(app: Flask, limit_active: bool = True):
     Only loads players with a key_mlbam (MLBAM ID).
     """
     print("Fetching Chadwick register (16 files)...")
-    rows_all = []
-    for url in CHADWICK_URLS:
-        resp = requests.get(url, timeout=30)
-        resp.raise_for_status()
-        reader = csv.DictReader(io.StringIO(resp.text))
-        rows_all.extend(reader)
-    reader = iter(rows_all) 
 
     db_path = os.environ.get("DATABASE_PATH", str(
         __import__("pathlib").Path(__file__).parent.parent / "fantasy.db"
@@ -56,32 +49,53 @@ def seed_from_chadwick(app: Flask, limit_active: bool = True):
     conn.execute("PRAGMA foreign_keys=ON")
 
     inserted = 0
-    for row in reader:
-        mlbam_id = row.get("key_mlbam", "").strip()
-        if not mlbam_id:
-            continue
-        try:
-            mlbam_id = int(mlbam_id)
-        except ValueError:
-            continue
+    batch = []
+    for i, url in enumerate(CHADWICK_URLS, 1):
+        print(f"  Fetching file {i}/16...")
+        resp = requests.get(url, timeout=30, stream=True)
+        resp.raise_for_status()
+        reader = csv.DictReader(line.decode("utf-8") for line in resp.iter_lines())
+        for row in reader:
+            mlbam_id = row.get("key_mlbam", "").strip()
+            if not mlbam_id:
+                continue
+            try:
+                mlbam_id = int(mlbam_id)
+            except ValueError:
+                continue
 
-        fg_id = row.get("key_fangraphs", "").strip() or None
-        first = (row.get("name_first") or "").strip()
-        last = (row.get("name_last") or "").strip()
-        if not first and not last:
-            continue
+            fg_id = row.get("key_fangraphs", "").strip() or None
+            first = (row.get("name_first") or "").strip()
+            last = (row.get("name_last") or "").strip()
+            if not first and not last:
+                continue
 
-        conn.execute(
+            batch.append((mlbam_id, fg_id, first, last))
+            if len(batch) >= 1000:
+                conn.executemany(
+                    """
+                    INSERT OR IGNORE INTO players
+                        (mlbam_id, fg_id, name_first, name_last, position, active)
+                    VALUES (?, ?, ?, ?, NULL, 0)
+                    """,
+                    batch,
+                )
+                conn.commit()
+                inserted += len(batch)
+                batch = []
+
+    if batch:
+        conn.executemany(
             """
             INSERT OR IGNORE INTO players
                 (mlbam_id, fg_id, name_first, name_last, position, active)
-            VALUES (?, ?, ?, ?, ?, 0)
+            VALUES (?, ?, ?, ?, NULL, 0)
             """,
-            (mlbam_id, fg_id, first, last, None),
+            batch,
         )
-        inserted += 1
+        conn.commit()
+        inserted += len(batch)
 
-    conn.commit()
     conn.close()
     print(f"Seeded {inserted} players from Chadwick register.")
 
