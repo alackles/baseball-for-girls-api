@@ -5,6 +5,7 @@ and daily snapshot writer.
 """
 
 import json
+import re
 import sqlite3
 from datetime import datetime, timedelta, timezone
 from typing import Optional
@@ -16,6 +17,7 @@ from app.mlb import (
     get_game_log,
     get_schedule,
     get_game_feed,
+    get_game_boxscore,
 )
 
 
@@ -242,21 +244,45 @@ def _check_stolen_base_of_home(mlbam_id: int, game_pk: int) -> int:
 def _check_abs_challenges(mlbam_id: int, game_pk: int) -> tuple[int, int]:
     """Return (successful_challenges, unsuccessful_challenges) for this batter."""
     try:
-        feed = get_game_feed(game_pk)
-        plays = feed.get("liveData", {}).get("plays", {}).get("allPlays", [])
+        boxscore = get_game_boxscore(game_pk)
+
+        # Look up the player's last name from the boxscore player data
+        last_name = None
+        for side in ("home", "away"):
+            player = (boxscore.get("teams", {})
+                      .get(side, {})
+                      .get("players", {})
+                      .get(f"ID{mlbam_id}"))
+            if player:
+                last_name = player.get("person", {}).get("lastName", "")
+                break
+        if not last_name:
+            return 0, 0
+
+        # Find the ABS Challenge info entry
+        abs_value = next(
+            (item.get("value", "") for item in boxscore.get("info", [])
+             if item.get("label") == "ABS Challenge"),
+            None,
+        )
+        if not abs_value:
+            return 0, 0
+
+        # Parse "Name [count] (result, result); Name (result); ..."
         succ = unsucc = 0
-        for play in plays:
-            batter_id = play.get("matchup", {}).get("batter", {}).get("id")
-            if batter_id != mlbam_id:
+        for entry in abs_value.rstrip(".").split("; "):
+            paren = entry.find("(")
+            if paren == -1:
                 continue
-            for event in play.get("playEvents", []):
-                details = event.get("details", {})
-                etype = details.get("eventType", "")
-                if "challenge" in etype.lower():
-                    if details.get("challengeResult", "") == "overturned":
-                        succ += 1
-                    else:
-                        unsucc += 1
+            name_part = re.sub(r"\s+\d+$", "", entry[:paren].strip())
+            if last_name.lower() not in name_part.lower():
+                continue
+            for result in entry[paren + 1:].rstrip(")").split(","):
+                if "Overturned" in result:
+                    succ += 1
+                else:
+                    unsucc += 1
+
         return succ, unsucc
     except Exception:
         return 0, 0

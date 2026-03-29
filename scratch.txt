@@ -1,0 +1,15 @@
+python - <<'EOF'
+from app import create_app
+from app.mlb import get_game_feed
+import json
+
+app = create_app()
+with app.app_context():
+    feed = get_game_feed(824541)  # fill in a known gamePk
+    plays = feed["liveData"]["plays"]["allPlays"]
+    for play in plays:
+        for event in play.get("playEvents", []):
+            d = event.get("details", {})
+            if d:
+                print(json.dumps(d, indent=2))
+EOF

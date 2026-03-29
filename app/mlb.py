@@ -116,6 +116,11 @@ def get_game_feed(game_pk: int) -> dict:
     return _get(f"/game/{game_pk}/feed/live")
 
 
+def get_game_boxscore(game_pk: int) -> dict:
+    """Boxscore for a completed or in-progress game."""
+    return _get(f"/game/{game_pk}/boxscore")
+
+
 def get_schedule(start_date: str, end_date: str, sport_id: int = 1) -> list[dict]:
     """
     Returns list of game dicts with gamePk, gameDate, teams.
