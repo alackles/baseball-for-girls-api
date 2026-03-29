@@ -427,7 +427,7 @@ def standings():
             }
         teams[tid]["total_points"] += r["points"]
         teams[tid]["weekly"].append(
-            {"week": r["week_number"], "points": r["points"]}
+            {"period": r["week_number"], "points": r["points"]}
         )
 
     sorted_teams = sorted(
@@ -455,7 +455,7 @@ def scores(team_id: int):
     weeks = []
     for r in rows:
         entry = {
-            "week": r["week_number"],
+            "period": r["week_number"],
             "points": r["points"],
             "computed_at": r["computed_at"],
             "breakdown": json.loads(r["breakdown_json"] or "{}"),

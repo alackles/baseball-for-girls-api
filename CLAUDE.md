@@ -27,13 +27,13 @@ python run.py  # http://localhost:5000 — serves API + static/index.html
 # Production
 gunicorn "app:create_app()" --bind 0.0.0.0:$PORT
 
-# Manually trigger weekly scoring (e.g. for testing)
+# Manually trigger nightly scoring (e.g. for testing)
 python - <<'EOF'
 from app import create_app
-from app.scoring import write_weekly_snapshot
+from app.scoring import write_daily_snapshot
 app = create_app()
 with app.app_context():
-    write_weekly_snapshot(app)
+    write_daily_snapshot(app)
 EOF
 
 # Initialize the draft (after teams are created and queues set)
@@ -46,13 +46,13 @@ curl -X POST http://localhost:5000/api/draft/initialize
 
 **Application factory** in `app/__init__.py` initializes Flask, CORS, SQLite (WAL mode), and APScheduler with three background jobs:
 - Every 5 min: autopick expired draft picks
-- Sunday midnight UTC: lock weekly scores
+- Nightly 05:01 UTC (12:01 AM Central): lock daily scores
 - Monday 00:05 UTC: apply accepted trades
 
 **Key modules:**
 - `api.py` — All REST endpoints under `/api/` (blueprint `bp`). Helpers `_ok()` / `_err()` for uniform responses.
 - `draft.py` — Snake draft engine, pick expiration, autopick from team queue
-- `scoring.py` — Points formula from `config.json`, weekly stat diffs, snapshot locking
+- `scoring.py` — Points formula from `config.json`, daily stat diffs, snapshot locking
 - `trades.py` — Proposal/acceptance window enforcement (date-gated), deferred execution on Mondays
 - `players.py` — Chadwick Bureau CSV import, MLB Stats API enrichment, name search
 - `mlb.py` — Wrapper for public MLB Stats API (`statsapi.mlb.com/api/v1`), 1-hour in-process TTL cache

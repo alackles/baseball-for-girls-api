@@ -1,7 +1,7 @@
 """
 app/scoring.py
-Points formula, weekly stat diffing, chaos event detection,
-and weekly snapshot writer.
+Points formula, daily stat diffing, chaos event detection,
+and daily snapshot writer.
 """
 
 import json
@@ -30,21 +30,31 @@ def _points_cfg(app: Flask) -> dict:
     return _cfg(app)["points"]
 
 
-def _week_bounds(week_number: int, season: int) -> tuple[str, str]:
+def _day_bounds(day_number: int, season: int) -> tuple[str, str]:
     """
-    Return (start_date, end_date) strings ('MM/DD/YYYY') for a given
-    fantasy week. Week 1 starts on Opening Day (approx March 20).
-    We anchor to the Thursday nearest March 20 of the season.
+    Return (start_date, end_date) strings ('MM/DD/YYYY') for a single
+    scoring day. Day 1 = Opening Day (March 27).
     """
-    # Approximate Opening Day — adjust if needed
     opening_day = datetime(season, 3, 27)
-    start = opening_day + timedelta(weeks=week_number - 1)
-    end = start + timedelta(days=6)
-    fmt = "%m/%d/%Y"
-    return start.strftime(fmt), end.strftime(fmt)
+    target = opening_day + timedelta(days=day_number - 1)
+    date_str = target.strftime("%m/%d/%Y")
+    return date_str, date_str
+
+
+def _current_day(season: int) -> int:
+    """
+    Day number of the season (1 = Opening Day). Returns 0 before season starts.
+    Scores yesterday's completed games (job runs at 12:01 AM Central = 05:01 UTC).
+    """
+    opening_day = datetime(season, 3, 27).date()
+    yesterday = (datetime.now(timezone.utc) - timedelta(days=1)).date()
+    if yesterday < opening_day:
+        return 0
+    return (yesterday - opening_day).days + 1
 
 
 def _current_week(season: int) -> int:
+    """Used by trades.py for weekly trade effective-date logic."""
     today = datetime.now(timezone.utc).date()
     opening_day = datetime(season, 3, 27).date()
     delta = (today - opening_day).days
@@ -299,23 +309,23 @@ def _check_position_player_pitching(mlbam_id: int, position: str,
 
 
 # ---------------------------------------------------------------------------
-# Weekly snapshot writer
+# Daily snapshot writer
 # ---------------------------------------------------------------------------
-def write_weekly_snapshot(app: Flask):
+def write_daily_snapshot(app: Flask):
     """
-    Called Sunday midnight by APScheduler.
-    Computes points for each team for the week just completed and writes
-    an immutable row to weekly_scores.
+    Called nightly at 12:01 AM Central (05:01 UTC) by APScheduler.
+    Computes points for each team for yesterday's games and writes
+    an immutable row to weekly_scores (week_number stores day number).
     """
     cfg = _cfg(app)
     season = cfg["season"]
     pts_cfg = _points_cfg(app)
     chaos_pts = pts_cfg["chaos"]
-    week_number = _current_week(season)
-    if week_number <= 0:
+    day_number = _current_day(season)
+    if day_number <= 0:
         return
 
-    start_date, end_date = _week_bounds(week_number, season)
+    start_date, end_date = _day_bounds(day_number, season)
     conn = _db_conn(app)
 
     teams = conn.execute("SELECT id FROM teams").fetchall()
@@ -324,7 +334,7 @@ def write_weekly_snapshot(app: Flask):
         # Skip if already computed
         existing = conn.execute(
             "SELECT 1 FROM weekly_scores WHERE team_id=? AND week_number=? AND season=?",
-            (team_id, week_number, season),
+            (team_id, day_number, season),
         ).fetchone()
         if existing:
             continue
@@ -400,7 +410,7 @@ def write_weekly_snapshot(app: Flask):
             """,
             (
                 team_id,
-                week_number,
+                day_number,
                 season,
                 round(team_points, 2),
                 datetime.now(timezone.utc).isoformat(),

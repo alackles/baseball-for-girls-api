@@ -982,7 +982,7 @@ async function loadStandings() {
             <div class="sparkline">
               ${t.weekly.map(w => {
                 const h = Math.max(2, Math.round((w.points / maxPts) * 30));
-                return `<div class="sparkline-bar" style="height:${h}px" title="Wk ${w.week}: ${w.points.toFixed(1)} pts"></div>`;
+                return `<div class="sparkline-bar" style="height:${h}px" title="Day ${w.period}: ${w.points.toFixed(1)} pts"></div>`;
               }).join('')}
             </div>
           </td>

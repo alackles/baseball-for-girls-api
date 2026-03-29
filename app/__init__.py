@@ -67,12 +67,12 @@ def _autopick_job():
         process_expired_picks(app)
 
 
-def _weekly_snapshot_job():
-    """Fired Sunday midnight; locks weekly scores."""
-    from app.scoring import write_weekly_snapshot
+def _daily_snapshot_job():
+    """Fired nightly at 12:01 AM Central (05:01 UTC); locks daily scores."""
+    from app.scoring import write_daily_snapshot
     app = _get_current_app()
     with app.app_context():
-        write_weekly_snapshot(app)
+        write_daily_snapshot(app)
 
 
 def _apply_pending_trades_job():
@@ -131,7 +131,7 @@ def create_app() -> Flask:
     scheduler = BackgroundScheduler(daemon=True)
     scheduler.add_job(_autopick_job, "interval", minutes=5, id="autopick")
     scheduler.add_job(
-        _weekly_snapshot_job, "cron", day_of_week="sun", hour=0, minute=0, id="weekly"
+        _daily_snapshot_job, "cron", hour=5, minute=1, id="daily_scores"
     )
     scheduler.add_job(
         _apply_pending_trades_job,
