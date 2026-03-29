@@ -1101,13 +1101,13 @@ async function toggleBreakdown(mlbamId) {
 
   const html = `
     <table class="breakdown-table">
-      <thead><tr><th>Event</th><th style="text-align:right">Pts</th><th>Game</th><th>Date</th></tr></thead>
+      <thead><tr><th>Event</th><th style="text-align:right;padding-right:1.5rem">Pts</th><th style="padding-left:1.5rem">Game</th><th>Date</th></tr></thead>
       <tbody>
         ${events.map(ev => `
           <tr>
             <td>${ev.label}</td>
-            <td style="text-align:right;font-family:var(--mono)" class="${ev.pts > 0 ? 'pts-pos' : ev.pts < 0 ? 'pts-neg' : ''}">${ev.pts > 0 ? '+' : ''}${ev.pts.toFixed(1)}</td>
-            <td class="text-muted">${ev.game || '—'}</td>
+            <td style="text-align:right;font-family:var(--mono);padding-right:1.5rem" class="${ev.pts > 0 ? 'pts-pos' : ev.pts < 0 ? 'pts-neg' : ''}">${ev.pts > 0 ? '+' : ''}${ev.pts.toFixed(1)}</td>
+            <td class="text-muted" style="padding-left:1.5rem">${ev.game || '—'}</td>
             <td class="text-muted">${ev.date || '—'}</td>
           </tr>
         `).join('')}
