@@ -35,7 +35,7 @@ def _day_bounds(day_number: int, season: int) -> tuple[str, str]:
     Return (start_date, end_date) strings ('MM/DD/YYYY') for a single
     scoring day. Day 1 = Opening Day (March 27).
     """
-    opening_day = datetime(season, 3, 27)
+    opening_day = datetime(season, 3, 26)
     target = opening_day + timedelta(days=day_number - 1)
     date_str = target.strftime("%m/%d/%Y")
     return date_str, date_str
@@ -46,7 +46,7 @@ def _current_day(season: int) -> int:
     Day number of the season (1 = Opening Day). Returns 0 before season starts.
     Scores yesterday's completed games (job runs at 12:01 AM Central = 05:01 UTC).
     """
-    opening_day = datetime(season, 3, 27).date()
+    opening_day = datetime(season, 3, 26).date()
     yesterday = (datetime.now(timezone.utc) - timedelta(days=1)).date()
     if yesterday < opening_day:
         return 0
@@ -56,7 +56,7 @@ def _current_day(season: int) -> int:
 def _current_week(season: int) -> int:
     """Used by trades.py for weekly trade effective-date logic."""
     today = datetime.now(timezone.utc).date()
-    opening_day = datetime(season, 3, 27).date()
+    opening_day = datetime(season, 3, 26).date()
     delta = (today - opening_day).days
     if delta < 0:
         return 0
@@ -309,6 +309,83 @@ def _check_position_player_pitching(mlbam_id: int, position: str,
 
 
 # ---------------------------------------------------------------------------
+# Per-game event row builder (for display breakdown)
+# ---------------------------------------------------------------------------
+def _build_event_rows(splits: list, pts_cfg: dict, is_pitcher: bool) -> list:
+    """
+    Given game log splits, return display event rows for the breakdown UI.
+    Each row: {"label": str, "pts": float, "game": str, "date": str}
+    Only non-zero stat categories are included.
+    """
+    rows = []
+    stat_pts = pts_cfg["pitching"] if is_pitcher else pts_cfg["batting"]
+
+    for split in splits:
+        stat = split.get("stat", {})
+        date = split.get("date", "")
+        opponent = split.get("opponent", {})
+        is_home = split.get("isHome", False)
+        opp_name = opponent.get("name", "Unknown")
+        game = f"vs. {opp_name}" if is_home else f"@ {opp_name}"
+
+        def _add(label, pts, _game=game, _date=date):
+            if pts:
+                rows.append({"label": label, "pts": round(pts, 2),
+                             "game": _game, "date": _date})
+
+        if not is_pitcher:
+            hits = int(stat.get("hits", 0))
+            doubles = int(stat.get("doubles", 0))
+            triples = int(stat.get("triples", 0))
+            home_runs = int(stat.get("homeRuns", 0))
+            singles = hits - doubles - triples - home_runs
+            rbi = int(stat.get("rbi", 0))
+            runs = int(stat.get("runs", 0))
+            walks = int(stat.get("baseOnBalls", 0))
+            sbs = int(stat.get("stolenBases", 0))
+            hbp = int(stat.get("hitByPitch", 0))
+            ks = int(stat.get("strikeOuts", 0))
+
+            if singles:   _add(f"{singles} Single{'s' if singles != 1 else ''}",    singles   * stat_pts.get("single", 1))
+            if doubles:   _add(f"{doubles} Double{'s' if doubles != 1 else ''}",    doubles   * stat_pts.get("double", 2))
+            if triples:   _add(f"{triples} Triple{'s' if triples != 1 else ''}",    triples   * stat_pts.get("triple", 3))
+            if home_runs: _add(f"{home_runs} Home Run{'s' if home_runs != 1 else ''}", home_runs * stat_pts.get("home_run", 4))
+            if rbi:       _add(f"{rbi} RBI",                                         rbi       * stat_pts.get("rbi", 1))
+            if runs:      _add(f"{runs} Run{'s' if runs != 1 else ''}",              runs      * stat_pts.get("run", 1))
+            if walks:     _add(f"{walks} Walk{'s' if walks != 1 else ''}",           walks     * stat_pts.get("walk", 1))
+            if sbs:       _add(f"{sbs} Stolen Base{'s' if sbs != 1 else ''}",       sbs       * stat_pts.get("stolen_base", 2))
+            if hbp:       _add(f"{hbp} Hit by Pitch",                               hbp       * stat_pts.get("hit_by_pitch", 1))
+            if ks:        _add(f"{ks} Strikeout{'s' if ks != 1 else ''}",           ks        * stat_pts.get("strikeout", -0.5))
+        else:
+            ip_raw = float(stat.get("inningsPitched", 0) or 0)
+            ip_whole = int(ip_raw)
+            ip_frac = round(ip_raw - ip_whole, 1)
+            innings = ip_whole + (ip_frac / 0.3 * (1 / 3)) if ip_frac else ip_whole
+            ks = int(stat.get("strikeOuts", 0))
+            wins = int(stat.get("wins", 0))
+            saves = int(stat.get("saves", 0))
+            holds = int(stat.get("holds", 0))
+            ers = int(stat.get("earnedRuns", 0))
+            bbs = int(stat.get("baseOnBalls", 0))
+            hits_allowed = int(stat.get("hits", 0))
+            cgs = int(stat.get("completeGames", 0))
+            shos = int(stat.get("shutouts", 0))
+
+            if innings:      _add(f"{ip_raw} IP",                                       innings      * stat_pts.get("inning_pitched", 2))
+            if ks:           _add(f"{ks} Strikeout{'s' if ks != 1 else ''}",            ks           * stat_pts.get("strikeout", 1))
+            if wins:         _add(f"{wins} Win{'s' if wins != 1 else ''}",              wins         * stat_pts.get("win", 4))
+            if saves:        _add(f"{saves} Save{'s' if saves != 1 else ''}",           saves        * stat_pts.get("save", 5))
+            if holds:        _add(f"{holds} Hold{'s' if holds != 1 else ''}",           holds        * stat_pts.get("hold", 2))
+            if ers:          _add(f"{ers} Earned Run{'s' if ers != 1 else ''}",         ers          * stat_pts.get("earned_run", -2))
+            if bbs:          _add(f"{bbs} Walk{'s' if bbs != 1 else ''} Allowed",       bbs          * stat_pts.get("walk_allowed", -0.5))
+            if hits_allowed: _add(f"{hits_allowed} Hit{'s' if hits_allowed != 1 else ''} Allowed", hits_allowed * stat_pts.get("hit_allowed", -0.5))
+            if cgs:          _add("Complete Game",                                      cgs          * stat_pts.get("complete_game", 3))
+            if shos:         _add("Shutout",                                            shos         * stat_pts.get("shutout_bonus", 3))
+
+    return rows
+
+
+# ---------------------------------------------------------------------------
 # Daily snapshot writer
 # ---------------------------------------------------------------------------
 def write_daily_snapshot(app: Flask):
@@ -394,12 +471,21 @@ def write_daily_snapshot(app: Flask):
                 is_pitcher, chaos_pts
             )
 
+            # Per-game event rows for display (game_log already cached from chaos detection)
+            game_group = "pitching" if is_pitcher else "hitting"
+            game_log = get_game_log(mlbam_id, season, game_group, start_date, end_date)
+            events = _build_event_rows(game_log, pts_cfg, is_pitcher)
+            if chaos_bonus:
+                events.append({"label": "Chaos bonus", "pts": round(chaos_bonus, 2),
+                               "game": "", "date": ""})
+
             player_total = p_pts + chaos_bonus
             team_points += player_total
             breakdown[str(mlbam_id)] = {
                 "base_pts": round(p_pts, 2),
                 "chaos_pts": round(chaos_bonus, 2),
                 "total": round(player_total, 2),
+                "events": events,
             }
 
         conn.execute(

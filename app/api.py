@@ -464,6 +464,37 @@ def scores(team_id: int):
     return _ok(weeks=weeks)
 
 
+@bp.get("/player/<int:mlbam_id>/breakdown")
+def player_breakdown(mlbam_id: int):
+    db = get_db(current_app)
+    cfg = current_app.config["CONFIG"]
+    season = int(request.args.get("season", cfg["season"]))
+    rows = db.execute(
+        """
+        SELECT week_number, breakdown_json
+        FROM weekly_scores
+        WHERE season = ?
+        ORDER BY week_number
+        """,
+        (season,),
+    ).fetchall()
+    pid = str(mlbam_id)
+    events = []
+    seen = set()  # deduplicate if player appears in multiple teams same day (shouldn't happen)
+    for r in rows:
+        breakdown = json.loads(r["breakdown_json"] or "{}")
+        player_data = breakdown.get(pid)
+        if not player_data:
+            continue
+        day = r["week_number"]
+        if day in seen:
+            continue
+        seen.add(day)
+        for ev in player_data.get("events", []):
+            events.append({"day": day, **ev})
+    return _ok(mlbam_id=mlbam_id, events=events)
+
+
 # ---------------------------------------------------------------------------
 # Trades
 # ---------------------------------------------------------------------------

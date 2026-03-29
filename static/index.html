@@ -390,6 +390,15 @@
   .loading { color: var(--muted); padding: 1.5rem; text-align: center; font-style: italic; }
   .error-msg { color: var(--red); font-size: 0.85rem; padding: 0.5rem; background: #1a0d0d;
                border-radius: var(--radius); margin-top: 0.5rem; }
+  .breakdown-toggle { background: none; border: none; padding: 0; color: var(--accent);
+                      cursor: pointer; font: inherit; text-align: left; }
+  .breakdown-toggle:hover { text-decoration: underline; }
+  .breakdown-row td { background: var(--surface2); padding: 0 !important; }
+  .breakdown-detail { padding: 0.5rem 1rem 0.75rem 1.5rem; }
+  .breakdown-table { width: 100%; font-size: 0.82rem; border-collapse: collapse; }
+  .breakdown-table th { color: var(--muted); font-weight: 600; padding: 0.2rem 0.5rem;
+                        border-bottom: 1px solid var(--border); }
+  .breakdown-table td { padding: 0.2rem 0.5rem; }
 </style>
 </head>
 <body>
@@ -1031,7 +1040,7 @@ async function loadRoster(teamId) {
         <tbody>
         ${roster.map(p => `
           <tr>
-            <td>${p.name_full}</td>
+            <td><button class="breakdown-toggle" onclick="toggleBreakdown(${p.mlbam_id})">${p.name_full}</button></td>
             <td><span class="badge badge-pos">${p.position || '?'}</span></td>
             <td>${p.slot === 'IL' ? '<span class="badge badge-il">IL</span>' : 'Active'}</td>
             <td style="text-align:right;font-family:var(--mono)">${(p.season_points||0).toFixed(1)}</td>
@@ -1044,6 +1053,11 @@ async function loadRoster(teamId) {
               </td>
             ` : ''}
           </tr>
+          <tr class="breakdown-row" id="bd-${p.mlbam_id}" style="display:none">
+            <td colspan="${isMyTeam ? 5 : 4}">
+              <div class="breakdown-detail" id="bd-content-${p.mlbam_id}"></div>
+            </td>
+          </tr>
         `).join('')}
         </tbody>
       </table>
@@ -1053,6 +1067,55 @@ async function loadRoster(teamId) {
   // Show FA add section only for own team
   const faCard = document.getElementById('faCard');
   faCard.style.display = isMyTeam ? 'block' : 'none';
+}
+
+const _breakdownCache = {};
+
+async function toggleBreakdown(mlbamId) {
+  const row = document.getElementById('bd-' + mlbamId);
+  if (!row) return;
+  const isHidden = row.style.display === 'none';
+  row.style.display = isHidden ? '' : 'none';
+  if (!isHidden) return;
+
+  const content = document.getElementById('bd-content-' + mlbamId);
+  if (_breakdownCache[mlbamId] !== undefined) {
+    content.innerHTML = _breakdownCache[mlbamId];
+    return;
+  }
+
+  content.innerHTML = '<div class="loading">Loading...</div>';
+  const data = await api('/player/' + mlbamId + '/breakdown');
+  if (!data.ok) {
+    content.innerHTML = '<div class="error-msg">Failed to load breakdown</div>';
+    return;
+  }
+
+  const events = data.events || [];
+  if (!events.length) {
+    const html = '<div class="loading">No scoring detail available yet</div>';
+    _breakdownCache[mlbamId] = html;
+    content.innerHTML = html;
+    return;
+  }
+
+  const html = `
+    <table class="breakdown-table">
+      <thead><tr><th>Event</th><th style="text-align:right">Pts</th><th>Game</th><th>Date</th></tr></thead>
+      <tbody>
+        ${events.map(ev => `
+          <tr>
+            <td>${ev.label}</td>
+            <td style="text-align:right;font-family:var(--mono)" class="${ev.pts > 0 ? 'pts-pos' : ev.pts < 0 ? 'pts-neg' : ''}">${ev.pts > 0 ? '+' : ''}${ev.pts.toFixed(1)}</td>
+            <td class="text-muted">${ev.game || '—'}</td>
+            <td class="text-muted">${ev.date || '—'}</td>
+          </tr>
+        `).join('')}
+      </tbody>
+    </table>
+  `;
+  _breakdownCache[mlbamId] = html;
+  content.innerHTML = html;
 }
 
 async function moveToIL(mlbamId) {
