@@ -158,14 +158,27 @@ def detect_chaos_events(mlbam_id: int, season: int,
                         start_date: str, end_date: str,
                         is_pitcher: bool,
                         chaos_pts: dict,
-                        two_way: bool = False) -> float:
+                        two_way: bool = False) -> tuple[float, list]:
     """
-    Scan game logs for a player over the week and return chaos bonus points.
+    Scan game logs for a player and return (bonus_points, event_rows).
     Handles: grand_slam, walk_off, stolen_base_of_home,
              no_hitter, perfect_game, immaculate_inning,
              abs_challenge, position_player_pitching multiplier bonus.
     """
     bonus = 0.0
+    events = []
+
+    def _split_game(split):
+        opponent = split.get("opponent", {})
+        opp_name = opponent.get("name", "Unknown")
+        game = f"vs. {opp_name}" if split.get("isHome") else f"@ {opp_name}"
+        return game, split.get("date", "")
+
+    def _add(label, pts, game="", date=""):
+        nonlocal bonus
+        bonus += pts
+        if pts:
+            events.append({"label": label, "pts": round(pts, 2), "game": game, "date": date})
 
     # Batting chaos (all position players + two-way)
     if not is_pitcher or two_way:
@@ -173,19 +186,26 @@ def detect_chaos_events(mlbam_id: int, season: int,
         for split in game_logs:
             stat = split.get("stat", {})
             game_pk = split.get("game", {}).get("gamePk")
+            game, date = _split_game(split)
 
-            # Grand slams
-            bonus += int(stat.get("grandSlams", 0)) * chaos_pts.get("grand_slam", 8)
+            gs = int(stat.get("grandSlams", 0))
+            if gs:
+                _add(f"Grand Slam{'s' if gs > 1 else ''}", gs * chaos_pts.get("grand_slam", 8), game, date)
 
-            # Walk-off: requires game feed
             if game_pk:
-                bonus += _check_walk_off(mlbam_id, game_pk) * chaos_pts.get("walk_off", 5)
-                # Stolen base of home
-                bonus += _check_stolen_base_of_home(mlbam_id, game_pk) * chaos_pts.get("stolen_base_of_home", 10)
-                # ABS challenges
+                wo = _check_walk_off(mlbam_id, game_pk)
+                if wo:
+                    _add("Walk-off", wo * chaos_pts.get("walk_off", 5), game, date)
+
+                sbh = _check_stolen_base_of_home(mlbam_id, game_pk)
+                if sbh:
+                    _add(f"Stolen Base{'s' if sbh > 1 else ''} of Home", sbh * chaos_pts.get("stolen_base_of_home", 10), game, date)
+
                 succ, unsucc = _check_abs_challenges(mlbam_id, game_pk)
-                bonus += succ * chaos_pts.get("abs_challenge_successful", 3)
-                bonus += unsucc * chaos_pts.get("abs_challenge_unsuccessful", -1)
+                if succ:
+                    _add(f"ABS Challenge{'s' if succ > 1 else ''} — Successful", succ * chaos_pts.get("abs_challenge_successful", 3), game, date)
+                if unsucc:
+                    _add(f"ABS Challenge{'s' if unsucc > 1 else ''} — Unsuccessful", unsucc * chaos_pts.get("abs_challenge_unsuccessful", -1), game, date)
 
     # Pitching chaos
     if is_pitcher or two_way:
@@ -193,18 +213,20 @@ def detect_chaos_events(mlbam_id: int, season: int,
         for split in game_logs:
             stat = split.get("stat", {})
             game_pk = split.get("game", {}).get("gamePk")
+            game, date = _split_game(split)
 
-            # No-hitter / perfect game (mutually exclusive bonus)
             if int(stat.get("noHitters", 0)) > 0:
                 if int(stat.get("perfectGames", 0)) > 0:
-                    bonus += chaos_pts.get("perfect_game", 50)
+                    _add("Perfect Game", chaos_pts.get("perfect_game", 50), game, date)
                 else:
-                    bonus += chaos_pts.get("no_hitter", 20)
+                    _add("No-Hitter", chaos_pts.get("no_hitter", 20), game, date)
 
             if game_pk:
-                bonus += _check_immaculate_inning(mlbam_id, game_pk) * chaos_pts.get("immaculate_inning", 25)
+                ii = _check_immaculate_inning(mlbam_id, game_pk)
+                if ii:
+                    _add("Immaculate Inning", ii * chaos_pts.get("immaculate_inning", 25), game, date)
 
-    return bonus
+    return bonus, events
 
 
 def _check_walk_off(mlbam_id: int, game_pk: int) -> int:
@@ -492,7 +514,7 @@ def write_daily_snapshot(app: Flask):
                 p_pts = compute_batting_points(diff, pts_cfg["batting"])
 
             # Chaos events
-            chaos_bonus = detect_chaos_events(
+            chaos_bonus, chaos_events = detect_chaos_events(
                 mlbam_id, season, start_date, end_date,
                 is_pitcher, chaos_pts
             )
@@ -501,9 +523,7 @@ def write_daily_snapshot(app: Flask):
             game_group = "pitching" if is_pitcher else "hitting"
             game_log = get_game_log(mlbam_id, season, game_group, start_date, end_date)
             events = _build_event_rows(game_log, pts_cfg, is_pitcher)
-            if chaos_bonus:
-                events.append({"label": "Chaos bonus", "pts": round(chaos_bonus, 2),
-                               "game": "", "date": ""})
+            events.extend(chaos_events)
 
             player_total = p_pts + chaos_bonus
             team_points += player_total
