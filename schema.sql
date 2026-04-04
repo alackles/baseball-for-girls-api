@@ -88,6 +88,25 @@ CREATE TABLE IF NOT EXISTS trade_players (
     to_team     INTEGER NOT NULL REFERENCES teams(id)
 );
 
+-- Community bonus point proposals and votes
+CREATE TABLE IF NOT EXISTS bonus_proposals (
+    id               INTEGER PRIMARY KEY,
+    proposed_by_team INTEGER NOT NULL REFERENCES teams(id),
+    mlbam_id         INTEGER NOT NULL REFERENCES players(mlbam_id),
+    points           REAL NOT NULL,
+    reason           TEXT NOT NULL,
+    proposed_at      TEXT NOT NULL,
+    status           TEXT NOT NULL DEFAULT 'pending' CHECK(status IN ('pending', 'approved', 'rejected')),
+    resolved_at      TEXT
+);
+
+CREATE TABLE IF NOT EXISTS bonus_votes (
+    proposal_id INTEGER NOT NULL REFERENCES bonus_proposals(id),
+    team_id     INTEGER NOT NULL REFERENCES teams(id),
+    vote        TEXT NOT NULL CHECK(vote IN ('approve', 'reject')),
+    PRIMARY KEY (proposal_id, team_id)
+);
+
 -- Indexes for common query patterns
 CREATE INDEX IF NOT EXISTS idx_rosters_team       ON rosters(team_id);
 CREATE INDEX IF NOT EXISTS idx_draft_picks_team   ON draft_picks(team_id);

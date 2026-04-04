@@ -414,6 +414,17 @@ def standings():
         (season,),
     ).fetchall()
 
+    # Approved bonus points per team
+    bonus_rows = db.execute(
+        """
+        SELECT proposed_by_team AS team_id, SUM(points) AS bonus_total
+        FROM bonus_proposals
+        WHERE status='approved'
+        GROUP BY proposed_by_team
+        """
+    ).fetchall()
+    bonus_map = {r["team_id"]: r["bonus_total"] for r in bonus_rows}
+
     teams: dict = {}
     for r in rows:
         tid = r["team_id"]
@@ -423,12 +434,32 @@ def standings():
                 "team_name": r["team_name"],
                 "owner": r["owner"],
                 "total_points": 0.0,
+                "bonus_points": bonus_map.get(tid, 0.0),
                 "weekly": [],
             }
         teams[tid]["total_points"] += r["points"]
         teams[tid]["weekly"].append(
             {"period": r["week_number"], "points": r["points"]}
         )
+
+    # Include any teams with bonus points but no weekly scores yet
+    for tid, bonus in bonus_map.items():
+        if tid not in teams:
+            t_row = db.execute(
+                "SELECT id, name, owner FROM teams WHERE id=?", (tid,)
+            ).fetchone()
+            if t_row:
+                teams[tid] = {
+                    "team_id": tid,
+                    "team_name": t_row["name"],
+                    "owner": t_row["owner"],
+                    "total_points": 0.0,
+                    "bonus_points": bonus,
+                    "weekly": [],
+                }
+
+    for t in teams.values():
+        t["total_points"] += t["bonus_points"]
 
     sorted_teams = sorted(
         teams.values(), key=lambda t: t["total_points"], reverse=True
@@ -555,6 +586,147 @@ def trades_reject(trade_id: int):
 
 
 # ---------------------------------------------------------------------------
+# Bonus Proposals
+# ---------------------------------------------------------------------------
+BONUS_APPROVE_THRESHOLD = 3  # votes needed to approve
+BONUS_REJECT_THRESHOLD = 1   # votes needed to reject
+
+
+def _resolve_proposal_if_majority(db, proposal_id: int):
+    """Auto-approve at 3 approve votes; auto-reject at 1 reject vote."""
+    votes = db.execute(
+        "SELECT vote, COUNT(*) AS cnt FROM bonus_votes WHERE proposal_id=? GROUP BY vote",
+        (proposal_id,),
+    ).fetchall()
+    vote_counts = {r["vote"]: r["cnt"] for r in votes}
+    approve_count = vote_counts.get("approve", 0)
+    reject_count = vote_counts.get("reject", 0)
+
+    if reject_count >= BONUS_REJECT_THRESHOLD:
+        db.execute(
+            "UPDATE bonus_proposals SET status='rejected', resolved_at=? WHERE id=?",
+            (datetime.now(timezone.utc).isoformat(), proposal_id),
+        )
+    elif approve_count >= BONUS_APPROVE_THRESHOLD:
+        db.execute(
+            "UPDATE bonus_proposals SET status='approved', resolved_at=? WHERE id=?",
+            (datetime.now(timezone.utc).isoformat(), proposal_id),
+        )
+
+
+@bp.get("/bonus-proposals")
+def bonus_proposals_list():
+    db = get_db(current_app)
+    proposals = db.execute(
+        """
+        SELECT bp.id, bp.proposed_by_team, t.name AS proposer_name,
+               bp.mlbam_id, p.name_full AS player_name, p.team AS player_team,
+               bp.points, bp.reason, bp.proposed_at, bp.status, bp.resolved_at
+        FROM bonus_proposals bp
+        JOIN teams t ON t.id = bp.proposed_by_team
+        JOIN players p ON p.mlbam_id = bp.mlbam_id
+        ORDER BY bp.proposed_at DESC
+        """
+    ).fetchall()
+
+    result = []
+    for prop in proposals:
+        votes = db.execute(
+            """
+            SELECT bv.team_id, t.name AS team_name, bv.vote
+            FROM bonus_votes bv
+            JOIN teams t ON t.id = bv.team_id
+            WHERE bv.proposal_id=?
+            """,
+            (prop["id"],),
+        ).fetchall()
+        approve_count = sum(1 for v in votes if v["vote"] == "approve")
+        reject_count = sum(1 for v in votes if v["vote"] == "reject")
+        result.append({
+            "id": prop["id"],
+            "proposed_by_team": prop["proposed_by_team"],
+            "proposer_name": prop["proposer_name"],
+            "mlbam_id": prop["mlbam_id"],
+            "player_name": prop["player_name"],
+            "player_team": prop["player_team"],
+            "points": prop["points"],
+            "reason": prop["reason"],
+            "proposed_at": prop["proposed_at"],
+            "status": prop["status"],
+            "resolved_at": prop["resolved_at"],
+            "approve_count": approve_count,
+            "reject_count": reject_count,
+            "votes": [dict(v) for v in votes],
+        })
+
+    total_teams = db.execute("SELECT COUNT(*) FROM teams").fetchone()[0]
+    return _ok(proposals=result, total_teams=total_teams)
+
+
+@bp.post("/bonus-proposals")
+def bonus_proposals_create():
+    db = get_db(current_app)
+    data = request.get_json(silent=True) or {}
+    proposed_by_team = data.get("proposed_by_team")
+    mlbam_id = data.get("mlbam_id")
+    points = data.get("points")
+    reason = (data.get("reason") or "").strip()
+
+    if not all([proposed_by_team, mlbam_id, points is not None, reason]):
+        return _err("proposed_by_team, mlbam_id, points, and reason are all required.")
+    if not reason:
+        return _err("reason is required.")
+
+    team = db.execute("SELECT id FROM teams WHERE id=?", (int(proposed_by_team),)).fetchone()
+    if not team:
+        return _err("Team not found.")
+    player = db.execute("SELECT mlbam_id FROM players WHERE mlbam_id=?", (int(mlbam_id),)).fetchone()
+    if not player:
+        return _err("Player not found.")
+
+    now = datetime.now(timezone.utc).isoformat()
+    cur = db.execute(
+        """
+        INSERT INTO bonus_proposals (proposed_by_team, mlbam_id, points, reason, proposed_at)
+        VALUES (?, ?, ?, ?, ?)
+        """,
+        (int(proposed_by_team), int(mlbam_id), float(points), reason, now),
+    )
+    db.commit()
+    return _ok(proposal_id=cur.lastrowid)
+
+
+@bp.post("/bonus-proposals/<int:proposal_id>/vote")
+def bonus_proposals_vote(proposal_id: int):
+    db = get_db(current_app)
+    data = request.get_json(silent=True) or {}
+    team_id = data.get("team_id")
+    vote = data.get("vote")
+
+    if not team_id or vote not in ("approve", "reject"):
+        return _err("team_id and vote ('approve' or 'reject') are required.")
+
+    proposal = db.execute(
+        "SELECT status FROM bonus_proposals WHERE id=?", (proposal_id,)
+    ).fetchone()
+    if not proposal:
+        return _err("Proposal not found.")
+    if proposal["status"] != "pending":
+        return _err(f"Proposal is already {proposal['status']}.")
+
+    db.execute(
+        """
+        INSERT INTO bonus_votes (proposal_id, team_id, vote) VALUES (?, ?, ?)
+        ON CONFLICT(proposal_id, team_id) DO UPDATE SET vote=excluded.vote
+        """,
+        (proposal_id, int(team_id), vote),
+    )
+    _resolve_proposal_if_majority(db, proposal_id)
+    db.commit()
+    return _ok()
+
+
+# ---------------------------------------------------------------------------
 # Export / Import  (for safe redeployment on ephemeral hosting)
 # ---------------------------------------------------------------------------
 @bp.get("/export")
@@ -597,6 +769,8 @@ def export_db():
         trades=rows("trades"),
         trade_players=rows("trade_players"),
         weekly_scores=rows("weekly_scores"),
+        bonus_proposals=rows("bonus_proposals"),
+        bonus_votes=rows("bonus_votes"),
     )
 
 
@@ -618,6 +792,8 @@ def import_db():
     total = 0
 
     # Clear user tables in reverse FK order, then re-insert.
+    db.execute("DELETE FROM bonus_votes")
+    db.execute("DELETE FROM bonus_proposals")
     db.execute("DELETE FROM weekly_scores")
     db.execute("DELETE FROM trade_players")
     db.execute("DELETE FROM trades")
@@ -689,6 +865,23 @@ def import_db():
             " (team_id, week_number, season, points, computed_at, breakdown_json)"
             " VALUES (:team_id,:week_number,:season,:points,:computed_at,:breakdown_json)",
             ws,
+        )
+        total += 1
+
+    for bp_row in data.get("bonus_proposals", []):
+        db.execute(
+            "INSERT INTO bonus_proposals"
+            " (id, proposed_by_team, mlbam_id, points, reason, proposed_at, status, resolved_at)"
+            " VALUES (:id,:proposed_by_team,:mlbam_id,:points,:reason,:proposed_at,:status,:resolved_at)",
+            bp_row,
+        )
+        total += 1
+
+    for bv in data.get("bonus_votes", []):
+        db.execute(
+            "INSERT INTO bonus_votes (proposal_id, team_id, vote)"
+            " VALUES (:proposal_id,:team_id,:vote)",
+            bv,
         )
         total += 1
 

@@ -109,8 +109,28 @@ def create_app() -> Flask:
         _conn.commit()
     except sqlite3.OperationalError:
         pass  # column already exists
-    finally:
-        _conn.close()
+
+    # Migrate: create bonus tables if absent (for DBs created before this feature)
+    _conn.executescript("""
+        CREATE TABLE IF NOT EXISTS bonus_proposals (
+            id               INTEGER PRIMARY KEY,
+            proposed_by_team INTEGER NOT NULL REFERENCES teams(id),
+            mlbam_id         INTEGER NOT NULL REFERENCES players(mlbam_id),
+            points           REAL NOT NULL,
+            reason           TEXT NOT NULL,
+            proposed_at      TEXT NOT NULL,
+            status           TEXT NOT NULL DEFAULT 'pending' CHECK(status IN ('pending', 'approved', 'rejected')),
+            resolved_at      TEXT
+        );
+        CREATE TABLE IF NOT EXISTS bonus_votes (
+            proposal_id INTEGER NOT NULL REFERENCES bonus_proposals(id),
+            team_id     INTEGER NOT NULL REFERENCES teams(id),
+            vote        TEXT NOT NULL CHECK(vote IN ('approve', 'reject')),
+            PRIMARY KEY (proposal_id, team_id)
+        );
+    """)
+    _conn.commit()
+    _conn.close()
 
     # Ensure DB schema is applied
     init_db(app)

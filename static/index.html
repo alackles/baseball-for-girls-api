@@ -359,8 +359,35 @@
   }
   .status-pending  { background: #2a2200; color: var(--accent2); }
   .status-accepted { background: #0d2a1a; color: var(--green); }
+  .status-approved { background: #0d2a1a; color: var(--green); }
   .status-rejected { background: #1a0d0d; color: var(--red); }
   .status-executed { background: #0d1a2a; color: #6ab0f5; }
+
+  /* ---- Bonus proposals ---- */
+  .bonus-card {
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 1rem;
+    margin-bottom: 0.75rem;
+  }
+  .bonus-card .bonus-meta { font-size: 0.8rem; color: var(--muted); margin-bottom: 0.5rem; }
+  .bonus-vote-bar {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    margin-top: 0.5rem;
+    font-size: 0.82rem;
+  }
+  .vote-tally {
+    display: flex;
+    gap: 0.25rem;
+    align-items: center;
+    font-family: var(--mono);
+    font-size: 0.78rem;
+  }
+  .vote-approve { color: var(--green); }
+  .vote-reject  { color: var(--red); }
 
   /* ---- Roster view ---- */
   .roster-selector { display: flex; gap: 0.5rem; margin-bottom: 1rem; flex-wrap: wrap; }
@@ -557,6 +584,45 @@
 <!-- ===================== SCORING VIEW ===================== -->
 <div id="view-scoring" class="view">
   <div id="scoringRules"><div class="loading">Loading...</div></div>
+
+  <div class="card" id="bonusProposeCard">
+    <h2>Propose Bonus Points</h2>
+    <p style="font-size:0.85rem;color:var(--muted);margin-bottom:1rem">
+      Did something extraordinary happen that deserves points? Propose a bonus for any player — a simple majority vote approves it.
+    </p>
+    <div class="field">
+      <label>Your team</label>
+      <select id="bonusPropTeam">
+        <option value="">— select your team —</option>
+      </select>
+    </div>
+    <div class="field">
+      <label>Player</label>
+      <div class="player-search-row" style="margin-bottom:0">
+        <input type="text" id="bonusPlayerSearch" placeholder="Search players..." oninput="searchBonusPlayer()" />
+      </div>
+      <div id="bonusPlayerResults" style="max-height:180px;overflow-y:auto;margin-top:0.25rem;"></div>
+      <input type="hidden" id="bonusMlbamId" />
+      <div id="bonusPlayerChosen" style="font-size:0.85rem;color:var(--accent);margin-top:0.25rem;min-height:1.2em;"></div>
+    </div>
+    <div class="field">
+      <label>Bonus points</label>
+      <input type="number" id="bonusPoints" placeholder="e.g. 25" step="0.5" style="max-width:140px" />
+    </div>
+    <div class="field">
+      <label>Reason</label>
+      <input type="text" id="bonusReason" placeholder="e.g. Sonic Slam during KC Royals Sonic Slam inning" />
+    </div>
+    <div class="mt flex">
+      <button class="btn btn-primary" onclick="submitBonusProposal()">Submit Proposal</button>
+      <div id="bonusPropMsg" style="margin-left:0.75rem;font-size:0.85rem;"></div>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2>Bonus Proposals</h2>
+    <div id="bonusProposalList"><div class="loading">Loading...</div></div>
+  </div>
 </div>
 
 <!-- ===================== SETTINGS VIEW ===================== -->
@@ -1389,6 +1455,139 @@ async function loadScoring() {
     </div>
     ${pts.chaos ? renderScoringSection('Chaos Events', pts.chaos) : ''}
   `;
+
+  // Populate bonus proposal team dropdown
+  const sel = document.getElementById('bonusPropTeam');
+  sel.innerHTML = '<option value="">— select your team —</option>';
+  (state.teams || []).forEach(t => {
+    const opt = document.createElement('option');
+    opt.value = t.id;
+    opt.textContent = t.name;
+    sel.appendChild(opt);
+  });
+  if (state.myTeamId) sel.value = state.myTeamId;
+
+  loadBonusProposals();
+}
+
+// ============================================================
+// Bonus Proposals
+// ============================================================
+let bonusPlayerSearchTimeout = null;
+
+function searchBonusPlayer() {
+  clearTimeout(bonusPlayerSearchTimeout);
+  bonusPlayerSearchTimeout = setTimeout(async () => {
+    const q = document.getElementById('bonusPlayerSearch').value.trim();
+    const resultsEl = document.getElementById('bonusPlayerResults');
+    if (q.length < 2) { resultsEl.innerHTML = ''; return; }
+    const data = await api('/players/search?q=' + encodeURIComponent(q));
+    if (!data.ok || !data.players.length) {
+      resultsEl.innerHTML = '<div class="loading">No players found</div>';
+      return;
+    }
+    resultsEl.innerHTML = data.players.slice(0, 10).map(p => `
+      <div class="player-item" style="cursor:pointer" onclick="selectBonusPlayer(${p.mlbam_id}, '${esc(p.name_full)}', '${esc(p.team || '')}')">
+        <span class="player-name">${esc(p.name_full)}</span>
+        <span class="badge badge-pos">${p.position || '?'}</span>
+        <span style="font-size:0.78rem;color:var(--muted)">${esc(p.team || '')}</span>
+      </div>
+    `).join('');
+  }, 250);
+}
+
+function selectBonusPlayer(mlbamId, name, team) {
+  document.getElementById('bonusMlbamId').value = mlbamId;
+  document.getElementById('bonusPlayerChosen').textContent = name + (team ? ' (' + team + ')' : '');
+  document.getElementById('bonusPlayerSearch').value = '';
+  document.getElementById('bonusPlayerResults').innerHTML = '';
+}
+
+async function submitBonusProposal() {
+  const propTeam = parseInt(document.getElementById('bonusPropTeam').value);
+  const mlbamId = parseInt(document.getElementById('bonusMlbamId').value);
+  const points = parseFloat(document.getElementById('bonusPoints').value);
+  const reason = document.getElementById('bonusReason').value.trim();
+  const msg = document.getElementById('bonusPropMsg');
+
+  if (!propTeam) { msg.style.color = 'var(--red)'; msg.textContent = 'Select your team.'; return; }
+  if (!mlbamId) { msg.style.color = 'var(--red)'; msg.textContent = 'Select a player.'; return; }
+  if (isNaN(points)) { msg.style.color = 'var(--red)'; msg.textContent = 'Enter a point value.'; return; }
+  if (!reason) { msg.style.color = 'var(--red)'; msg.textContent = 'Enter a reason.'; return; }
+
+  const res = await api('/bonus-proposals', {
+    method: 'POST',
+    body: JSON.stringify({ proposed_by_team: propTeam, mlbam_id: mlbamId, points, reason }),
+  });
+  msg.style.color = res.ok ? 'var(--green)' : 'var(--red)';
+  msg.textContent = res.ok ? 'Proposal submitted!' : res.error;
+  if (res.ok) {
+    document.getElementById('bonusMlbamId').value = '';
+    document.getElementById('bonusPlayerChosen').textContent = '';
+    document.getElementById('bonusPoints').value = '';
+    document.getElementById('bonusReason').value = '';
+    loadBonusProposals();
+  }
+}
+
+async function loadBonusProposals() {
+  const el = document.getElementById('bonusProposalList');
+  const data = await api('/bonus-proposals');
+  if (!data.ok) { el.innerHTML = '<div class="error-msg">Could not load proposals.</div>'; return; }
+  if (!data.proposals.length) { el.innerHTML = '<div class="loading">No proposals yet.</div>'; return; }
+
+  el.innerHTML = data.proposals.map(p => {
+    const myVote = state.myTeamId ? (p.votes.find(v => v.team_id === state.myTeamId) || {}).vote : null;
+    const ptsClass = p.points >= 0 ? 'pts-pos' : 'pts-neg';
+    const voteButtons = (p.status === 'pending' && state.myTeamId && state.myTeamId !== p.proposed_by_team) ? `
+      <button class="btn btn-sm ${myVote === 'approve' ? 'btn-primary' : 'btn-secondary'}" onclick="castBonusVote(${p.id}, 'approve')">
+        ${myVote === 'approve' ? 'Voted Approve' : 'Approve'}
+      </button>
+      <button class="btn btn-sm ${myVote === 'reject' ? 'btn-danger' : 'btn-secondary'}" onclick="castBonusVote(${p.id}, 'reject')">
+        ${myVote === 'reject' ? 'Voted Reject' : 'Reject'}
+      </button>
+    ` : '';
+    const voterNames = p.votes.map(v =>
+      `<span class="${v.vote === 'approve' ? 'vote-approve' : 'vote-reject'}">${esc(v.team_name)}: ${v.vote}</span>`
+    ).join(' &middot; ');
+    return `
+      <div class="bonus-card">
+        <div class="bonus-meta flex">
+          <span>Proposed by <strong>${esc(p.proposer_name)}</strong></span>
+          <span class="spacer"></span>
+          <span class="status-badge status-${p.status}">${p.status}</span>
+          <span style="margin-left:0.5rem;color:var(--muted);font-size:0.78rem">${(p.proposed_at || '').slice(0,10)}</span>
+        </div>
+        <div style="margin-bottom:0.4rem">
+          <strong>${esc(p.player_name)}</strong>
+          ${p.player_team ? `<span style="color:var(--muted);font-size:0.85rem"> (${esc(p.player_team)})</span>` : ''}
+          &mdash; <span class="${ptsClass}" style="font-family:var(--mono)">${p.points > 0 ? '+' : ''}${p.points} pts</span>
+        </div>
+        <div style="font-size:0.88rem;margin-bottom:0.5rem">${esc(p.reason)}</div>
+        <div class="bonus-vote-bar">
+          <span class="vote-tally">
+            <span class="vote-approve">${p.approve_count} approve</span>
+            /
+            <span class="vote-reject">${p.reject_count} reject</span>
+            <span style="color:var(--muted)"> &middot; need 3 to approve, 1 to reject</span>
+          </span>
+          <span class="spacer"></span>
+          ${voteButtons}
+        </div>
+        ${voterNames ? `<div style="font-size:0.75rem;color:var(--muted);margin-top:0.3rem">${voterNames}</div>` : ''}
+      </div>
+    `;
+  }).join('');
+}
+
+async function castBonusVote(proposalId, vote) {
+  if (!state.myTeamId) return;
+  const res = await api(`/bonus-proposals/${proposalId}/vote`, {
+    method: 'POST',
+    body: JSON.stringify({ team_id: state.myTeamId, vote }),
+  });
+  if (!res.ok) { alert(res.error); return; }
+  loadBonusProposals();
 }
 
 // ============================================================
