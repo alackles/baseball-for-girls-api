@@ -26,7 +26,6 @@ from app.trades import (
     get_all_trades,
     trade_window_status,
 )
-from app.mlb import is_player_on_il
 
 bp = Blueprint("api", __name__)
 
@@ -319,7 +318,7 @@ def roster_drop(team_id: int):
 
 @bp.post("/roster/<int:team_id>/il")
 def roster_il(team_id: int):
-    """Move a player from active to IL slot (gated on MLB IL status)."""
+    """Move a player from active to IL slot."""
     data = request.get_json(silent=True) or {}
     mlbam_id = data.get("mlbam_id")
     if not mlbam_id:
@@ -344,10 +343,6 @@ def roster_il(team_id: int):
     ).fetchone()[0]
     if il_count >= il_slots:
         return _err(f"IL slots full ({il_slots} max).")
-
-    # Gate on MLB IL status
-    if not is_player_on_il(int(mlbam_id)):
-        return _err("Player is not on the MLB IL. Only MLB-IL-listed players can be moved to your IL slot.")
 
     db.execute(
         "UPDATE rosters SET slot='IL' WHERE team_id=? AND mlbam_id=?",
